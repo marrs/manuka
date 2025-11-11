@@ -1,0 +1,40 @@
+{
+  "name": "Manuka",
+  "version": "0.0.0",
+  "description": "A SQL builder inspired by HoneySQL.",
+  "license": "ISC",
+  "author": "David Marrs",
+  "type": "module",
+  "main": "./target/builder.js",
+  "types": "./target/builder.d.ts",
+  "exports": {
+    ".": {
+      "types": "./target/builder.d.ts",
+      "import": "./target/builder.js"
+    }
+  },
+  "files": [
+    "target/**/*.js",
+    "target/**/*.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "mocha",
+    "build": "tsup src/builder.ts --format esm --dts --outDir target",
+    "watch": "tsup src/builder.ts --format esm --dts --outDir target --watch",
+    "prepublishOnly": "yarn build"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/express": "^5.0.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.0",
+    "chai": "^5.1.2",
+    "mocha": "^11.1.0",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "yarn@4.11.0"
+}
