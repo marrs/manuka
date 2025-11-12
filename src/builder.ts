@@ -5,6 +5,11 @@ type AST = {
 }
 
 export function format(ast: AST) {
+  // Validate clause dependencies
+  if (ast.from && !ast.select) {
+    throw new Error('FROM clause requires SELECT clause');
+  }
+
   let result: string[] = [];
   if (ast.select) {
     result.push(`SELECT ${ast.select.join(', ')}`);
