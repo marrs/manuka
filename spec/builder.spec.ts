@@ -26,7 +26,7 @@ describe('format', () => {
     });
   });
 
-  context.skip('where', () => {
+  context('where', () => {
     it('formats a simple equality condition.', () => {
       expect(format({
         select: ['*'],
