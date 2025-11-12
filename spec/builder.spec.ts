@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import sinon from 'sinon';
 import { format, partial } from '../src/builder.ts'
 
 describe('format', () => {
@@ -66,5 +67,53 @@ describe('format', () => {
         where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
       })).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
     });
+  });
+});
+
+describe('format.pretty', () => {
+  it('formats clauses with newlines.', () => {
+    expect(format.pretty({
+      select: ['*'],
+      from: ['users']
+    })).to.eql("SELECT *\nFROM users");
+  });
+
+  it('formats a complete query with newlines.', () => {
+    expect(format.pretty({
+      select: ['a', 'b', 'c'],
+      from: ['t1'],
+      where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
+    })).to.eql("SELECT a, b, c\nFROM t1\nWHERE b <> bar AND t1.a = baz");
+  });
+});
+
+describe('format.pprint', () => {
+  const selectFromUsers = partial({ select: ['*'], from: ['users'] });
+
+  it('formats clauses with newlines and logs to console.debug.', () => {
+    const consoleDebugSpy = sinon.spy(console, 'debug');
+
+    const result = format.pprint(selectFromUsers({
+      where: ['=', 'id', '1']
+    }));
+
+    expect(result).to.eql("SELECT *\nFROM users\nWHERE id = 1");
+    expect(consoleDebugSpy.calledOnce).to.be.true;
+    expect(consoleDebugSpy.calledWith("SELECT *\nFROM users\nWHERE id = 1")).to.be.true;
+
+    consoleDebugSpy.restore();
+  });
+
+  it('returns the formatted output.', () => {
+    const consoleDebugStub = sinon.stub(console, 'debug');
+
+    const result = format.pprint({
+      select: ['a', 'b'],
+      from: ['t1']
+    });
+
+    expect(result).to.eql("SELECT a, b\nFROM t1");
+
+    consoleDebugStub.restore();
   });
 });

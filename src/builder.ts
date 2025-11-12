@@ -53,7 +53,7 @@ export function partial(...partials: Partial<AST>[]): (target: Partial<AST>) => 
   };
 }
 
-export function format(ast: AST) {
+function formatWithSeparator(ast: AST, separator: string): string {
   // Validate clause dependencies
   if (ast.from && !ast.select) {
     throw new Error('FROM clause requires SELECT clause');
@@ -75,5 +75,19 @@ export function format(ast: AST) {
     result.push(`WHERE ${formatExpression(ast.where)}`);
   }
 
-  return result.join(' ');
+  return result.join(separator);
 }
+
+export function format(ast: AST): string {
+  return formatWithSeparator(ast, ' ');
+}
+
+format.pretty = function(ast: AST): string {
+  return formatWithSeparator(ast, '\n');
+};
+
+format.pprint = function(ast: AST): string {
+  const output = formatWithSeparator(ast, '\n');
+  console.debug(output);
+  return output;
+};
