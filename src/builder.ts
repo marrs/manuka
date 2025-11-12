@@ -1,4 +1,6 @@
-type Expr = string | number | [string, ...Expr[]];
+type Token = string | number | null;
+type CompoundExpr = [string, ...Expr[]]
+type Expr = Token | CompoundExpr;
 
 type AST = {
   select?: string[],
@@ -7,13 +9,34 @@ type AST = {
   orderBy?: string,
 }
 
-function formatExpression(expr: Expr, parentOp?: string): string {
-  // Base case: literals (strings, numbers)
-  if (typeof expr === 'string' || typeof expr === 'number') {
-    return String(expr);
+function stringifyToken(token: number | string | null) {
+  if (typeof token === 'string' || typeof token === 'number') {
+    return String(token);
   }
 
-  const [op, ...args] = expr;
+  if (typeof token === null) {
+    return "NULL";
+  }
+
+  return '';
+}
+
+function isToken(expr: Expr) {
+  if (typeof expr === 'string'
+  || typeof expr === 'number'
+  || typeof expr === null) {
+    return true
+  }
+  return false;
+}
+
+function formatExpression(expr: Expr, parentOp?: string): string {
+  // Base case: literals (strings, numbers)
+  if (isToken(expr)) {
+    return stringifyToken(expr as Token);
+  }
+
+  const [op, ...args] = expr as CompoundExpr;
 
   // Binary operators
   const binaryOps = ['=', '<>', '<', '>', '<=', '>=', 'LIKE', 'like'];
@@ -98,7 +121,7 @@ function prettyFormat(ast: AST, indent: string = ''): string {
 
   if (ast.where) {
     // For WHERE with logical operators, we need to split them
-    const whereClauses = formatWhereClause(ast.where);
+    const whereClauses = prettyFormatWhereClause(ast.where);
     lines.push(...whereClauses);
   }
 
@@ -112,12 +135,12 @@ function prettyFormat(ast: AST, indent: string = ''): string {
   }).join('\n');
 }
 
-function formatWhereClause(expr: Expr): Array<{keyword: string, content: string}> {
-  if (typeof expr === 'string' || typeof expr === 'number') {
-    return [{keyword: 'WHERE', content: String(expr)}];
+function prettyFormatWhereClause(expr: Expr): Array<{keyword: string, content: string}> {
+  if (isToken(expr)) {
+    return [{keyword: 'WHERE', content: stringifyToken(expr as Token)}];
   }
 
-  const [op, ...args] = expr;
+  const [op, ...args] = expr as CompoundExpr;
 
   // For AND at the top level, split into multiple lines
   if (op === 'and') {
