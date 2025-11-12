@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { format, merge } from '../src/builder.ts'
+import { format, partial } from '../src/builder.ts'
 
 describe('format', () => {
   context('select', () => {
@@ -27,36 +27,36 @@ describe('format', () => {
   });
 
   context('where', () => {
-    const baseQuery = { select: ['*'], from: ['users'] };
+    const selectFromUsers = partial({ select: ['*'], from: ['users'] });
 
     it('formats a simple equality condition.', () => {
-      expect(format(merge({
+      expect(format(selectFromUsers({
         where: ['=', 'id', '1']
-      }, baseQuery))).to.eql("SELECT * FROM users WHERE id = 1");
+      }))).to.eql("SELECT * FROM users WHERE id = 1");
     });
 
     it('formats a not-equal condition.', () => {
-      expect(format(merge({
+      expect(format(selectFromUsers({
         where: ['<>', 'status', 'inactive']
-      }, baseQuery))).to.eql("SELECT * FROM users WHERE status <> inactive");
+      }))).to.eql("SELECT * FROM users WHERE status <> inactive");
     });
 
     it('formats an AND condition with multiple predicates.', () => {
-      expect(format(merge({
+      expect(format(selectFromUsers({
         where: ['and', ['=', 'active', 'true'], ['>', 'age', '18']]
-      }, baseQuery))).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
+      }))).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
     });
 
     it('formats an OR condition with multiple predicates.', () => {
-      expect(format(merge({
+      expect(format(selectFromUsers({
         where: ['or', ['=', 'role', 'admin'], ['=', 'role', 'moderator']]
-      }, baseQuery))).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
+      }))).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
     });
 
     it('formats nested logical operators.', () => {
-      expect(format(merge({
+      expect(format(selectFromUsers({
         where: ['and', ['=', 'active', 'true'], ['or', ['=', 'role', 'admin'], ['=', 'role', 'mod']]]
-      }, baseQuery))).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
+      }))).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
     });
 
     it('formats the README example.', () => {

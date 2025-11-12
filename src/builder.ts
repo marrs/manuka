@@ -44,6 +44,15 @@ export function merge(target: Partial<AST>, source: Partial<AST>): Partial<AST> 
   return target;
 }
 
+export function partial(...partials: Partial<AST>[]): (target: Partial<AST>) => Partial<AST> {
+  return (target: Partial<AST>) => {
+    for (const p of partials) {
+      Object.assign(target, p);
+    }
+    return target;
+  };
+}
+
 export function format(ast: AST) {
   // Validate clause dependencies
   if (ast.from && !ast.select) {
