@@ -137,8 +137,9 @@ describe('format.pretty', () => {
   it('prettifies with right-aligned keywords.', () => {
     expect(format.pretty({
       select: ['*'],
-      from: ['users']
-    })).to.eql("SELECT *\n  FROM users");
+      from: ['users'],
+      orderBy: 'id',
+    })).to.eql("  SELECT *\n    FROM users\nORDER BY id");
   });
 
   it('formats a complete query with right-aligned keywords and operators.', () => {

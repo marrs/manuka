@@ -4,6 +4,7 @@ type AST = {
   select?: string[],
   from?: string[],
   where?: Expr,
+  orderBy?: string,
 }
 
 function formatExpression(expr: Expr, parentOp?: string): string {
@@ -89,6 +90,10 @@ function prettyFormat(ast: AST, indent: string = ''): string {
 
   if (ast.from) {
     lines.push({keyword: 'FROM', content: ast.from.join(', ')});
+  }
+
+  if (ast.orderBy) {
+    lines.push({keyword: 'ORDER BY', content: ast.orderBy});
   }
 
   if (ast.where) {
