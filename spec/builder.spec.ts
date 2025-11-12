@@ -23,9 +23,6 @@ describe('format', () => {
       expect(format({select: ['*'], from: ['users', 'orders']})).to.eql("SELECT * FROM users, orders");
     });
 
-    it('requires a select clause.', () => {
-      expect(() => format({from: ['t1']})).to.throw(/FROM clause requires SELECT clause/);
-    });
   });
 
   context('where', () => {
@@ -68,6 +65,24 @@ describe('format', () => {
         where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
       })).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
     });
+  });
+});
+
+describe('validate', () => {
+  it('throws when FROM clause is present without SELECT.', () => {
+    expect(() => validate({from: ['t1']})).to.throw(/FROM clause requires SELECT clause/);
+  });
+
+  it('throws when WHERE clause is present without FROM.', () => {
+    expect(() => validate({select: ['*'], where: [eq, 'id', '1']})).to.throw(/WHERE clause requires FROM clause/);
+  });
+
+  it('passes for valid AST with SELECT and FROM.', () => {
+    expect(() => validate({select: ['*'], from: ['users']})).to.not.throw();
+  });
+
+  it('passes for valid AST with SELECT, FROM, and WHERE.', () => {
+    expect(() => validate({select: ['*'], from: ['users'], where: [eq, 'id', '1']})).to.not.throw();
   });
 });
 

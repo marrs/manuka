@@ -39,6 +39,15 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   return `${op}(${args.map(arg => formatExpression(arg, op)).join(', ')})`;
 }
 
+export function validate(ast: Partial<AST>): void {
+  if (ast.from && !ast.select) {
+    throw new Error('FROM clause requires SELECT clause');
+  }
+  if (ast.where && !ast.from) {
+    throw new Error('WHERE clause requires FROM clause');
+  }
+}
+
 export function merge(target: Partial<AST>, source: Partial<AST>): Partial<AST> {
   Object.assign(target, source);
   return target;
@@ -54,14 +63,6 @@ export function partial(...partials: Partial<AST>[]): (target: Partial<AST>) => 
 }
 
 function formatWithSeparator(ast: AST, separator: string): string {
-  // Validate clause dependencies
-  if (ast.from && !ast.select) {
-    throw new Error('FROM clause requires SELECT clause');
-  }
-  if (ast.where && !ast.from) {
-    throw new Error('WHERE clause requires FROM clause');
-  }
-
   let result: string[] = [];
   if (ast.select) {
     result.push(`SELECT ${ast.select.join(', ')}`);
@@ -79,14 +80,6 @@ function formatWithSeparator(ast: AST, separator: string): string {
 }
 
 function formatPretty(ast: AST, indent: string = '  '): string {
-  // Validate clause dependencies
-  if (ast.from && !ast.select) {
-    throw new Error('FROM clause requires SELECT clause');
-  }
-  if (ast.where && !ast.from) {
-    throw new Error('WHERE clause requires FROM clause');
-  }
-
   const lines: Array<{keyword: string, content: string}> = [];
 
   // Collect clauses with their keywords
