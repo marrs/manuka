@@ -70,16 +70,16 @@ describe('format', () => {
   });
 });
 
-describe('format.pretty', () => {
+describe('format.newline', () => {
   it('formats clauses with newlines.', () => {
-    expect(format.pretty({
+    expect(format.newline({
       select: ['*'],
       from: ['users']
     })).to.eql("SELECT *\nFROM users");
   });
 
   it('formats a complete query with newlines.', () => {
-    expect(format.pretty({
+    expect(format.newline({
       select: ['a', 'b', 'c'],
       from: ['t1'],
       where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
@@ -87,19 +87,66 @@ describe('format.pretty', () => {
   });
 });
 
+describe('format.nlprint', () => {
+  it('formats with newlines and logs to console.debug.', () => {
+    const consoleDebugSpy = sinon.spy(console, 'debug');
+
+    const result = format.nlprint({
+      select: ['*'],
+      from: ['users']
+    });
+
+    expect(result).to.eql("SELECT *\nFROM users");
+    expect(consoleDebugSpy.calledOnce).to.be.true;
+    expect(consoleDebugSpy.calledWith("SELECT *\nFROM users")).to.be.true;
+
+    consoleDebugSpy.restore();
+  });
+
+  it('returns the formatted output.', () => {
+    const consoleDebugStub = sinon.stub(console, 'debug');
+
+    const result = format.nlprint({
+      select: ['a', 'b'],
+      from: ['t1']
+    });
+
+    expect(result).to.eql("SELECT a, b\nFROM t1");
+
+    consoleDebugStub.restore();
+  });
+});
+
+describe('format.pretty', () => {
+  it('prettifies with right-aligned keywords.', () => {
+    expect(format.pretty({
+      select: ['*'],
+      from: ['users']
+    })).to.eql("SELECT *\n  FROM users");
+  });
+
+  it('formats a complete query with right-aligned keywords and operators.', () => {
+    expect(format.pretty({
+      select: ['a', 'b', 'c'],
+      from: ['t1'],
+      where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
+    })).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
+  });
+});
+
 describe('format.pprint', () => {
   const selectFromUsers = partial({ select: ['*'], from: ['users'] });
 
-  it('formats clauses with newlines and logs to console.debug.', () => {
+  it('formats with pretty alignment and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
     const result = format.pprint(selectFromUsers({
       where: ['=', 'id', '1']
     }));
 
-    expect(result).to.eql("SELECT *\nFROM users\nWHERE id = 1");
+    expect(result).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
     expect(consoleDebugSpy.calledOnce).to.be.true;
-    expect(consoleDebugSpy.calledWith("SELECT *\nFROM users\nWHERE id = 1")).to.be.true;
+    expect(consoleDebugSpy.calledWith("SELECT *\n  FROM users\n WHERE id = 1")).to.be.true;
 
     consoleDebugSpy.restore();
   });
@@ -112,8 +159,33 @@ describe('format.pprint', () => {
       from: ['t1']
     });
 
-    expect(result).to.eql("SELECT a, b\nFROM t1");
+    expect(result).to.eql("SELECT a, b\n  FROM t1");
 
     consoleDebugStub.restore();
+  });
+});
+
+describe('indentation configuration', () => {
+  it('format.pretty uses default 2-space indentation.', () => {
+    expect(format.pretty({
+      select: ['*'],
+      from: ['users'],
+      where: ['and', ['=', 'active', 'true'], ['=', 'role', 'admin']]
+    })).to.eql("SELECT *\n  FROM users\n WHERE active = true\n   AND role = admin");
+  });
+
+  it('format.pretty accepts custom indentation string.', () => {
+    expect(format.pretty({
+      select: ['*'],
+      from: ['users'],
+      where: ['and', ['=', 'active', 'true'], ['=', 'role', 'admin']]
+    }, '    ')).to.eql("SELECT *\n    FROM users\n   WHERE active = true\n     AND role = admin");
+  });
+
+  it('format.pretty accepts tab indentation.', () => {
+    expect(format.pretty({
+      select: ['*'],
+      from: ['users']
+    }, '\t')).to.eql("SELECT *\n\tFROM users");
   });
 });
