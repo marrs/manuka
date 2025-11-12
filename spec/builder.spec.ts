@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { format, partial } from '../src/builder.ts'
+import { format, partial, validate } from '../src/builder.ts';
+import { and, or, eq, ne, lt, gt, gte } from '../src/vocabulary.ts';
 
 describe('format', () => {
   context('select', () => {
@@ -32,31 +33,31 @@ describe('format', () => {
 
     it('formats a simple equality condition.', () => {
       expect(format(selectFromUsers({
-        where: ['=', 'id', '1']
+        where: [eq, 'id', '1']
       }))).to.eql("SELECT * FROM users WHERE id = 1");
     });
 
     it('formats a not-equal condition.', () => {
       expect(format(selectFromUsers({
-        where: ['<>', 'status', 'inactive']
+        where: [ne, 'status', 'inactive']
       }))).to.eql("SELECT * FROM users WHERE status <> inactive");
     });
 
     it('formats an AND condition with multiple predicates.', () => {
       expect(format(selectFromUsers({
-        where: ['and', ['=', 'active', 'true'], ['>', 'age', '18']]
+        where: [and, [eq, 'active', 'true'], [gt, 'age', '18']]
       }))).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
     });
 
     it('formats an OR condition with multiple predicates.', () => {
       expect(format(selectFromUsers({
-        where: ['or', ['=', 'role', 'admin'], ['=', 'role', 'moderator']]
+        where: [or, [eq, 'role', 'admin'], [eq, 'role', 'moderator']]
       }))).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
     });
 
     it('formats nested logical operators.', () => {
       expect(format(selectFromUsers({
-        where: ['and', ['=', 'active', 'true'], ['or', ['=', 'role', 'admin'], ['=', 'role', 'mod']]]
+        where: [and, [eq, 'active', 'true'], [or, [eq, 'role', 'admin'], [eq, 'role', 'mod']]]
       }))).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
     });
 
@@ -64,7 +65,7 @@ describe('format', () => {
       expect(format({
         select: ['a', 'b', 'c'],
         from: ['t1'],
-        where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
+        where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
       })).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
     });
   });
@@ -82,7 +83,7 @@ describe('format.newline', () => {
     expect(format.newline({
       select: ['a', 'b', 'c'],
       from: ['t1'],
-      where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
+      where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
     })).to.eql("SELECT a, b, c\nFROM t1\nWHERE b <> bar AND t1.a = baz");
   });
 });
@@ -129,7 +130,7 @@ describe('format.pretty', () => {
     expect(format.pretty({
       select: ['a', 'b', 'c'],
       from: ['t1'],
-      where: ['and', ['<>', 'b', 'bar'], ['=', 't1.a', 'baz']]
+      where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
     })).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
   });
 });
@@ -141,7 +142,7 @@ describe('format.pprint', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
     const result = format.pprint(selectFromUsers({
-      where: ['=', 'id', '1']
+      where: [eq, 'id', '1']
     }));
 
     expect(result).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
@@ -170,7 +171,7 @@ describe('indentation configuration', () => {
     expect(format.pretty({
       select: ['*'],
       from: ['users'],
-      where: ['and', ['=', 'active', 'true'], ['=', 'role', 'admin']]
+      where: [and, [eq, 'active', 'true'], [eq, 'role', 'admin']]
     })).to.eql("SELECT *\n  FROM users\n WHERE active = true\n   AND role = admin");
   });
 
@@ -178,7 +179,7 @@ describe('indentation configuration', () => {
     expect(format.pretty({
       select: ['*'],
       from: ['users'],
-      where: ['and', ['=', 'active', 'true'], ['=', 'role', 'admin']]
+      where: [and, [eq, 'active', 'true'], [eq, 'role', 'admin']]
     }, '    ')).to.eql("SELECT *\n    FROM users\n   WHERE active = true\n     AND role = admin");
   });
 
