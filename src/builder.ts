@@ -103,20 +103,22 @@ function formatWithSeparator(ast: AST, separator: string): string {
   return result.join(separator);
 }
 
+type ExprToken = [string, string];
+
 function prettyFormat(ast: AST, indent: string = ''): string {
-  const lines: Array<{keyword: string, content: string}> = [];
+  const lines: Array<ExprToken> = [];
 
   // Collect clauses with their keywords
   if (ast.select) {
-    lines.push({keyword: 'SELECT', content: ast.select.join(', ')});
+    lines.push(['SELECT', ast.select.join(', ')]);
   }
 
   if (ast.from) {
-    lines.push({keyword: 'FROM', content: ast.from.join(', ')});
+    lines.push(['FROM', ast.from.join(', ')]);
   }
 
   if (ast.orderBy) {
-    lines.push({keyword: 'ORDER BY', content: ast.orderBy});
+    lines.push(['ORDER BY', ast.orderBy]);
   }
 
   if (ast.where) {
@@ -126,31 +128,32 @@ function prettyFormat(ast: AST, indent: string = ''): string {
   }
 
   const longestKeyword = lines.reduce((acc, line) => {
-    return line.keyword.length > acc? line.keyword.length : acc;
+    return line[0].length > acc? line[0].length : acc;
   }, 0);
 
   return lines.map(line => {
-      const padding = ' '.repeat(longestKeyword - line.keyword.length);
-      return indent + padding + line.keyword + ' ' + line.content;
+    const keyword = line[0];
+    const padding = ' '.repeat(longestKeyword - keyword.length);
+    return indent + padding + keyword + ' ' + line[1];
   }).join('\n');
 }
 
-function prettyFormatWhereClause(expr: Expr): Array<{keyword: string, content: string}> {
+function prettyFormatWhereClause(expr: Expr): Array<ExprToken> {
   if (isToken(expr)) {
-    return [{keyword: 'WHERE', content: stringifyToken(expr as Token)}];
+    return [['WHERE', stringifyToken(expr as Token)]];
   }
 
   const [op, ...args] = expr as CompoundExpr;
 
   // For AND at the top level, split into multiple lines
   if (op === 'and') {
-    const result: Array<{keyword: string, content: string}> = [];
+    const result: Array<ExprToken> = [];
     for (let i = 0; i < args.length; i++) {
       const formatted = formatExpression(args[i]);
       if (i === 0) {
-        result.push({keyword: 'WHERE', content: formatted});
+        result.push(['WHERE', formatted]);
       } else {
-        result.push({keyword: 'AND', content: formatted});
+        result.push(['AND', formatted]);
       }
     }
     return result;
@@ -158,20 +161,20 @@ function prettyFormatWhereClause(expr: Expr): Array<{keyword: string, content: s
 
   // For OR at the top level, split into multiple lines
   if (op === 'or') {
-    const result: Array<{keyword: string, content: string}> = [];
+    const result: Array<ExprToken> = [];
     for (let i = 0; i < args.length; i++) {
       const formatted = formatExpression(args[i]);
       if (i === 0) {
-        result.push({keyword: 'WHERE', content: formatted});
+        result.push(['WHERE', formatted]);
       } else {
-        result.push({keyword: 'OR', content: formatted});
+        result.push(['OR', formatted]);
       }
     }
     return result;
   }
 
   // Otherwise, format as a single expression
-  return [{keyword: 'WHERE', content: formatExpression(expr)}];
+  return [['WHERE', formatExpression(expr)]];
 }
 
 export function format(ast: AST): string {
