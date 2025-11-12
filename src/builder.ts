@@ -79,7 +79,7 @@ function formatWithSeparator(ast: AST, separator: string): string {
   return result.join(separator);
 }
 
-function formatPretty(ast: AST, indent: string = '  '): string {
+function prettyFormat(ast: AST, indent: string = ''): string {
   const lines: Array<{keyword: string, content: string}> = [];
 
   // Collect clauses with their keywords
@@ -97,29 +97,13 @@ function formatPretty(ast: AST, indent: string = '  '): string {
     lines.push(...whereClauses);
   }
 
-  // Format each line with proper indentation and alignment
-  // SELECT starts at position 0
-  // FROM gets indented by `indent.length` spaces
-  // WHERE/AND/OR are right-aligned so their END position matches FROM's END position
+  const longestKeyword = lines.reduce((acc, line) => {
+    return line.keyword.length > acc? line.keyword.length : acc;
+  }, 0);
 
-  const indentLength = indent.length;
-  const fromKeywordLength = 'FROM'.length; // 4
-  const fromEndPosition = indentLength + fromKeywordLength;
-
-  return lines.map((line, i) => {
-    const keyword = line.keyword;
-
-    if (keyword === 'SELECT') {
-      // SELECT at position 0
-      return keyword + ' ' + line.content;
-    } else if (keyword === 'FROM') {
-      // FROM indented by indent.length
-      return indent + keyword + ' ' + line.content;
-    } else {
-      // WHERE/AND/OR right-aligned to match FROM's end position
-      const padding = ' '.repeat(fromEndPosition - keyword.length);
-      return padding + keyword + ' ' + line.content;
-    }
+  return lines.map(line => {
+      const padding = ' '.repeat(longestKeyword - line.keyword.length);
+      return indent + padding + line.keyword + ' ' + line.content;
   }).join('\n');
 }
 
@@ -176,12 +160,12 @@ format.nlprint = function(ast: AST): string {
   return output;
 };
 
-format.pretty = function(ast: AST, indent: string = '  '): string {
-  return formatPretty(ast, indent);
+format.pretty = function(ast: AST): string {
+  return prettyFormat(ast);
 };
 
-format.pprint = function(ast: AST, indent: string = '  '): string {
-  const output = formatPretty(ast, indent);
+format.pprint = function(ast: AST): string {
+  const output = prettyFormat(ast);
   console.debug(output);
   return output;
 };
