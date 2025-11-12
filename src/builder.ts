@@ -39,6 +39,11 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   return `${op}(${args.map(arg => formatExpression(arg, op)).join(', ')})`;
 }
 
+export function merge(target: Partial<AST>, source: Partial<AST>): Partial<AST> {
+  Object.assign(target, source);
+  return target;
+}
+
 export function format(ast: AST) {
   // Validate clause dependencies
   if (ast.from && !ast.select) {
