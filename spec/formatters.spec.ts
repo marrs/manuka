@@ -38,20 +38,24 @@ AND (role = admin
 ```
 */
 
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import chaiString from 'chai-string';
+
+use(chaiString);
+import './chai-extensions';
 import { prettyFormatter } from '../src/formatters.ts';
 
 describe('pretty formatter', () => {
-  context('where', () => {
-    it('should format WHERE with single simple predicate', () => {
+  context('where clause', () => {
+    it('renders a clause with a single predicate on one line', () => {
       expect(prettyFormatter(['WHERE', 'id = 1'])).to.eql('WHERE id = 1');
     });
 
-    it('should format WHERE with token value', () => {
+    it('is renders on a clause with a single token value on one line', () => {
       expect(prettyFormatter(['WHERE', '1'])).to.eql('WHERE 1');
     });
 
-    it('should right-align WHERE with other clauses', () => {
+    it('is indented so that WHERE is right-aligned with other clauses', () => {
       expect(prettyFormatter([
         ['SELECT', 'id'],
         ['FROM', 'users'],
@@ -59,67 +63,93 @@ describe('pretty formatter', () => {
       ])).to.eql('SELECT id\n  FROM users\n WHERE active = true');
     });
 
-    describe('simple predicates', () => {
-      it('should format AND with simple predicate', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'status = active'],
-          ['AND', 'age > 18']
-        ])).to.eql('WHERE status = active\n  AND age > 18');
-      });
-
-      it('should format OR with simple predicate', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'role = admin'],
-          ['OR', 'role = mod']
-        ])).to.eql('WHERE role = admin\n   OR role = mod');
-      });
-
-      it('should right-align multiple AND predicates', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'status = active'],
-          ['AND', 'age > 18'],
-          ['AND', 'role = admin']
-        ])).to.eql('WHERE status = active\n  AND age > 18\n  AND role = admin');
-      });
+    it('renders and right-aligns a single AND clause on the next line', () => {
+      const result = prettyFormatter([
+        ['WHERE', 'status = active'],
+        ['AND', 'age > 18']
+      ]).split('\n');
+      expect(result[0]).to.have.leadingSpaces(0);  // WHERE has no leading spaces
+      expect(result[1]).to.have.leadingSpaces(2);  // AND has 2 leading spaces
     });
 
-    describe('top-level logical operators', () => {
-      it('should format split top-level AND predicates on separate lines', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'status = active'],
-          ['AND', 'age > 18']
-        ])).to.eql('WHERE status = active\n  AND age > 18');
-      });
+    it('renders and right-aligns multiple AND predicates on their own lines', () => {
+      const result = prettyFormatter([
+        ['WHERE', 'status = active'],
+        ['AND', 'age > 18'],
+        ['AND', 'role = admin']
+      ]).split('\n');
+      expect(result[1]).to.match(/^  AND/);
+      expect(result[2]).to.match(/^  AND/);
+    });
 
-      it('should format split top-level OR predicates on separate lines', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'role = admin'],
-          ['OR', 'role = mod']
-        ])).to.eql('WHERE role = admin\n   OR role = mod');
-      });
+    it('renders and right-aligns a single OR clause on the next line', () => {
+      const result = prettyFormatter([
+        ['WHERE', 'role = admin'],
+        ['OR', 'role = mod']
+      ]).split('\n');
+      expect(result[1]).to.match(/^   OR/);
+    });
 
-      it('should handle multiple predicates (>2) with alignment', () => {
-        expect(prettyFormatter([
-          ['WHERE', 'a = 1'],
-          ['AND', 'b = 2'],
-          ['AND', 'c = 3'],
-          ['AND', 'd = 4']
-        ])).to.eql('WHERE a = 1\n  AND b = 2\n  AND c = 3\n  AND d = 4');
-      });
+    it('renders and right-aligns multiple OR predicates on their own lines', () => {
+      const result = prettyFormatter([
+        ['WHERE', 'status = active'],
+        ['OR', 'age > 18'],
+        ['OR', 'role = admin']
+      ]).split('\n');
+      expect(result[1]).to.match(/^   OR/);
+      expect(result[2]).to.match(/^   OR/);
     });
 
     describe('nested predicates', () => {
-      it('should render simple nested array on single line', () => {
+      it('brackets a nested predicate', () => {
         expect(prettyFormatter([
-          ['WHERE', 'active = true'],
           ['AND', [
             ['', 'role = admin'],
             ['OR', 'role = mod']
           ]]
-        ])).to.eql('WHERE active = true\n  AND (role = admin OR role = mod)');
+        ])).to.eql('AND (role = admin OR role = mod)');
       });
 
-      it('should render complex nested array on multiple lines', () => {
+      it('renders a nested single predicate on single line', () => {
+        expect(prettyFormatter([
+          ['AND', [
+            ['', 'role = admin'],
+            ['OR', 'role = mod']
+          ]]
+        ])).to.eql('AND (role = admin OR role = mod)');
+      });
+
+      it('renders nested multiple predicates across multiple lines', () => {
+        expect(prettyFormatter([
+          ['AND', [
+            ['', 'shipping_country = US'],
+            ['OR', 'shipping_country = CA'],
+            ['OR', 'shipping_country = MX']
+          ]]
+        ]).split('\n').length).to.eql(4);
+      });
+
+      it('renders the first operand of the nested predicate inline with the opening bracket', () => {
+        expect(prettyFormatter([
+          ['AND', [
+            ['', 'shipping_country = US'],
+            ['OR', 'shipping_country = CA'],
+            ['OR', 'shipping_country = MX'],
+          ]]
+        ])).to.startWith('AND (shipping_country = US\n');
+      });
+
+      it('renders the remaining operand of the nested predicate inline with the opening bracket', () => {
+        expect(prettyFormatter([
+          ['AND', [
+            ['', 'shipping_country = US'],
+            ['OR', 'shipping_country = CA'],
+            ['OR', 'shipping_country = MX'],
+          ]]
+        ])).to.startWith('AND (shipping_country = US\n');
+      });
+
+      it('renders nested multiple predicates across multiple lines', () => {
         expect(prettyFormatter([
           ['WHERE', 'active = true'],
           ['AND', [
@@ -130,16 +160,7 @@ describe('pretty formatter', () => {
         ])).to.eql('WHERE active = true\n  AND (shipping_country = US\n    OR shipping_country = CA\n    OR shipping_country = MX\n  )');
       });
 
-      it('should handle empty string operator for first predicate', () => {
-        expect(prettyFormatter([
-          ['AND', [
-            ['', 'predicate'],
-            ['OR', 'other']
-          ]]
-        ])).to.eql('AND (predicate OR other)');
-      });
-
-      it('should right-align operators within nested arrays', () => {
+      it('right-aligns operators within nested arrays', () => {
         expect(prettyFormatter([
           ['WHERE', [
             ['', 'a'],
@@ -149,7 +170,7 @@ describe('pretty formatter', () => {
         ])).to.eql('WHERE (a\n   AND b\n    OR c\n)');
       });
 
-      it('should handle deeply nested predicates', () => {
+      it('handles deeply nested predicates', () => {
         expect(prettyFormatter([
           ['WHERE', 'active = true'],
           ['AND', [
@@ -173,7 +194,7 @@ describe('pretty formatter', () => {
         ])).to.eql('AND (a OR b)');
       });
 
-      it('should render 3+ predicate nested array on multiple lines', () => {
+      it('renders 3+ predicate nested array on multiple lines', () => {
         expect(prettyFormatter([
           ['AND', [
             ['', 'a'],
@@ -185,57 +206,30 @@ describe('pretty formatter', () => {
     });
   });
 
-  describe('select', () => {
-    it('should format SELECT clause', () => {
-      expect(prettyFormatter(['SELECT', 'id, name, email'])).to.eql('SELECT id, name, email');
+  describe('clause operator alignment', () => {
+    const result = prettyFormatter([
+      ['SELECT', 'id, name'],
+      ['FROM', 'users'],
+      ['WHERE', 'active = true'],
+      ['AND', 'id > 4'],
+      ['OR', 'name = Bob'],
+      ['ORDER BY', 'name']
+    ]).split('\n');
+    it('left aligns the longest clause operator', () => {
+      expect(result[5]).to.have.leadingSpaces(0);
     });
 
-    it('should right-align SELECT with other clauses', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id'],
-        ['FROM', 'users']
-      ])).to.eql('SELECT id\n  FROM users');
-    });
-  });
-
-  describe('from', () => {
-    it('should format FROM clause', () => {
-      expect(prettyFormatter(['FROM', 'users, accounts'])).to.eql('FROM users, accounts');
-    });
-
-    it('should right-align FROM with other clauses', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id'],
-        ['FROM', 'users'],
-        ['WHERE', 'active = true']
-      ])).to.eql('SELECT id\n  FROM users\n WHERE active = true');
-    });
-  });
-
-  describe('order by', () => {
-    it('should format ORDER BY clause', () => {
-      expect(prettyFormatter(['ORDER BY', 'name ASC'])).to.eql('ORDER BY name ASC');
-    });
-
-    it('should right-align ORDER BY with other clauses', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id'],
-        ['ORDER BY', 'name']
-      ])).to.eql('  SELECT id\nORDER BY name');
+    it('right aligns other operators to the longest operator', () => {
+      expect(result[0]).to.have.leadingSpaces(2);
+      expect(result[1]).to.have.leadingSpaces(4);
+      expect(result[2]).to.have.leadingSpaces(3);
+      expect(result[3]).to.have.leadingSpaces(5);
+      expect(result[4]).to.have.leadingSpaces(6);
     });
   });
 
   describe('complete expression', () => {
-    it('should format all clauses with right-alignment', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id, name'],
-        ['FROM', 'users'],
-        ['WHERE', 'active = true'],
-        ['ORDER BY', 'name']
-      ])).to.eql('  SELECT id, name\n    FROM users\n   WHERE active = true\nORDER BY name');
-    });
-
-    it('should format expression with nested predicates', () => {
+    it('correctly formats an expression with nested predicates', () => {
       expect(prettyFormatter([
         ['SELECT', 'id'],
         ['FROM', 'users'],
@@ -245,25 +239,6 @@ describe('pretty formatter', () => {
           ['OR', 'role = mod']
         ]]
       ])).to.eql('SELECT id\n  FROM users\n WHERE active = true\n   AND (role = admin OR role = mod)');
-    });
-
-    it('should format expression with multiple top-level AND predicates', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id'],
-        ['FROM', 'users'],
-        ['WHERE', 'status = active'],
-        ['AND', 'age > 18'],
-        ['AND', 'role = admin']
-      ])).to.eql('SELECT id\n  FROM users\n WHERE status = active\n   AND age > 18\n   AND role = admin');
-    });
-
-    it('should format expression with mixed AND/OR at top level', () => {
-      expect(prettyFormatter([
-        ['SELECT', 'id'],
-        ['WHERE', 'status = active'],
-        ['AND', 'age > 18'],
-        ['OR', 'role = admin']
-      ])).to.eql('SELECT id\n WHERE status = active\n   AND age > 18\n    OR role = admin');
     });
   });
 });

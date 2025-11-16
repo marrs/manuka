@@ -1,13 +1,4 @@
-type Token = string | number | null;
-type CompoundExpr = [string, ...Expr[]]
-type Expr = Token | CompoundExpr;
-
-type AST = {
-  select?: string[],
-  from?: string[],
-  where?: Expr,
-  orderBy?: string,
-}
+import type { AST, Token, CompoundExpr, Expr } from './types';
 
 function stringifyToken(token: number | string | null) {
   if (typeof token === 'string' || typeof token === 'number') {

@@ -528,7 +528,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chai@npm:^5.0.1":
+"@types/chai-string@npm:^1":
+  version: 1.4.5
+  resolution: "@types/chai-string@npm:1.4.5"
+  dependencies:
+    "@types/chai": "npm:*"
+  checksum: 10c0/cc2491418ee2c41a210009d56b006df6c85e338d9cccefc2305b825f044389f1b9cc74972ea6a1ff1ee59d489242e07f0ae14f0afec431ddfa6d54f2ca905f18
+  languageName: node
+  linkType: hard
+
+"@types/chai@npm:*, @types/chai@npm:^5.0.1":
   version: 5.2.3
   resolution: "@types/chai@npm:5.2.3"
   dependencies:
@@ -672,10 +681,12 @@ __metadata:
   resolution: "Manuka@workspace:."
   dependencies:
     "@types/chai": "npm:^5.0.1"
+    "@types/chai-string": "npm:^1"
     "@types/express": "npm:^5.0.0"
     "@types/mocha": "npm:^10.0.10"
     "@types/node": "npm:^22.13.0"
     chai: "npm:^5.1.2"
+    chai-string: "npm:^1.6.0"
     mocha: "npm:^11.1.0"
     sinon: "npm:^21.0.0"
     ts-node: "npm:^10.9.2"
@@ -839,6 +850,15 @@ __metadata:
   version: 6.3.0
   resolution: "camelcase@npm:6.3.0"
   checksum: 10c0/0d701658219bd3116d12da3eab31acddb3f9440790c0792e0d398f0a520a6a4058018e546862b6fba89d7ae990efaeb97da71e1913e9ebf5a8b5621a3d55c710
+  languageName: node
+  linkType: hard
+
+"chai-string@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "chai-string@npm:1.6.0"
+  peerDependencies:
+    chai: ^4.1.2
+  checksum: 10c0/2cce8e8f27fd52226a1220cf0efe4fb3efd29a54f2f84db83dab5b29332d4261cf59f8cefc7ab8ff1d22570b002a88d6f956fb3f7dda4cd8dafd9d3999019c4a
   languageName: node
   linkType: hard
 
