@@ -117,14 +117,14 @@ function prettyFormat(ast: AST, indent: string = ''): string {
     lines.push(['FROM', ast.from.join(', ')]);
   }
 
-  if (ast.orderBy) {
-    lines.push(['ORDER BY', ast.orderBy]);
-  }
-
   if (ast.where) {
     // For WHERE with logical operators, we need to split them
     const whereClauses = prettyFormatWhereClause(ast.where);
     lines.push(...whereClauses);
+  }
+
+  if (ast.orderBy) {
+    lines.push(['ORDER BY', ast.orderBy]);
   }
 
   const longestKeyword = lines.reduce((acc, line) => {

@@ -103,21 +103,34 @@ type AST = {
 Tokens are the intermediate representation between AST and formatted SQL:
 
 ```typescript
-type ExprToken = [string, string[]];
+type ExprToken = [string, string | ExprToken[]];
 ```
 
-Each token is a tuple of `[keyword, [operands]]`:
+Each token is a tuple of `[keyword, operand]`:
 - **Keyword**: SQL clause keyword (SELECT, FROM, WHERE, AND, OR, etc.)
-- **Operands**: Array of strings representing the clause content
+- **Operand**: Either a string (for simple clauses) or a nested array of ExprTokens (for compound predicates)
 
-**Example Token Array:**
+**Example Token Array (Simple):**
 ```typescript
 [
-  ['SELECT', ['id, name, email']],
-  ['FROM', ['users']],
-  ['WHERE', ['active = true']],
-  ['AND', ['age > 18']],
-  ['ORDER BY', ['name']]
+  ['SELECT', 'id, name, email'],
+  ['FROM', 'users'],
+  ['WHERE', 'active = true'],
+  ['AND', 'age > 18'],
+  ['ORDER BY', 'name']
+]
+```
+
+**Example Token Array (With Nested Predicates):**
+```typescript
+[
+  ['SELECT', 'id, name'],
+  ['FROM', 'users'],
+  ['WHERE', 'active = true'],
+  ['AND', [
+    ['', 'role = admin'],
+    ['OR', 'role = mod']
+  ]]
 ]
 ```
 
@@ -127,23 +140,36 @@ Tokenizers convert AST objects into token arrays. Different tokenizers can produ
 
 #### Lightweight Tokenizer (Current Implementation)
 
-Pre-formats predicates into strings for minimal overhead:
+Converts AST predicates into structured token arrays:
 
 ```typescript
-// Input AST
+// Input AST (simple predicate)
 where: ['=', 'role', 'admin']
 
 // Output Token
-['WHERE', ['role = admin']]
+['WHERE', 'role = admin']
+
+// Input AST (compound predicate)
+where: ['and', ['=', 'active', 'true'], ['or', ['=', 'role', 'admin'], ['=', 'role', 'mod']]]
+
+// Output Tokens
+[
+  ['WHERE', 'active = true'],
+  ['AND', [
+    ['', 'role = admin'],
+    ['OR', 'role = mod']
+  ]]
+]
 ```
 
 **Use Case:** Runtime SQL generation for database queries
 
 **Characteristics:**
-- Pre-formatted predicate strings
-- Minimal memory allocation
-- Fast processing
-- Suitable for high-frequency operations
+- Produces structured tokens (strings for simple predicates, nested arrays for compound predicates)
+- Handles operator precedence and determines when parentheses are needed
+- Splits top-level AND/OR into separate tokens
+- Formatter makes final layout decisions (single-line vs. multi-line)
+- Minimal memory allocation, suitable for high-frequency operations
 
 ### Formatters
 
@@ -176,9 +202,33 @@ ORDER BY name
 ```
 
 **How it Works:**
-1. Calculate longest keyword across all tokens
-2. Apply padding to right-align each keyword
-3. Join with newlines
+1. Calculate longest keyword across all tokens at each nesting level
+2. Apply padding to right-align each keyword within its level
+3. Handle nested predicates:
+   - Recursively apply alignment to nested token arrays
+   - Decide whether to render on single line or multiple lines
+   - Add parentheses and indentation for multi-line nested predicates
+4. Join with newlines
+
+**Nested Predicate Handling:**
+
+The formatter receives structured nested arrays and decides layout:
+
+```typescript
+// Token input
+['AND', [
+  ['', 'role = admin'],
+  ['OR', 'role = mod']
+]]
+
+// Single-line output (simple case)
+AND (role = admin OR role = mod)
+
+// Multi-line output (complex case)
+AND (role = admin
+  OR role = mod
+)
+```
 
 ### Formatter Builder
 
@@ -263,15 +313,19 @@ where: ['and',
 **Tokens:**
 ```typescript
 [
-  ['WHERE', ['active = true']],
-  ['AND', ['(role = admin OR role = mod)']]
+  ['WHERE', 'active = true'],
+  ['AND', [
+    ['', 'role = admin'],
+    ['OR', 'role = mod']
+  ]]
 ]
 ```
 
 **Rules:**
-- OR nested inside AND gets parentheses
+- OR nested inside AND gets parentheses (handled by nested array structure)
 - AND nested inside OR does not need parentheses (AND has higher precedence)
-- Single predicates never need parentheses
+- Tokenizer produces nested arrays for compound predicates
+- Formatter adds parentheses and decides single-line vs. multi-line layout
 
 ### Splitting Top-Level AND
 
@@ -289,9 +343,9 @@ where: ['and',
 **Tokens:**
 ```typescript
 [
-  ['WHERE', ['status <> deleted']],
-  ['AND', ['age > 18']],
-  ['AND', ['active = true']]
+  ['WHERE', 'status <> deleted'],
+  ['AND', 'age > 18'],
+  ['AND', 'active = true']
 ]
 ```
 
@@ -405,23 +459,27 @@ Tokens are returned as flat arrays rather than nested structures:
 - Simpler iteration in formatters
 - More flexible for token manipulation
 
-### Why Pre-Formatted Strings in Lightweight Tokenizer?
+### Why Tokenizer Produces Structured Tokens?
 
-The lightweight tokenizer formats predicates during tokenization rather than in the formatter:
+The lightweight tokenizer converts predicates to strings but preserves structure for compound expressions:
 
 ```typescript
-// Pre-formatted (what we use)
-['WHERE', ['role = admin']]
+// Simple predicate (formatted string)
+['WHERE', 'role = admin']
 
-// Structured (alternative)
-['WHERE', [['=', 'role', 'admin']]]
+// Compound predicate (structured nested array)
+['WHERE', [
+  ['', 'role = admin'],
+  ['OR', 'role = mod']
+]]
 ```
 
 **Rationale:**
-- Formatters don't need to understand operator semantics
-- Reduces formatter complexity
-- Performance: avoids re-traversing predicate structures
-- Separation: predicate formatting belongs in tokenizer (structure concern)
+- Simple predicates are formatted once by tokenizer (efficient)
+- Compound predicates preserve structure for formatter decisions
+- Formatter controls layout (single-line vs. multi-line) based on complete token array
+- Clear separation: tokenizer handles structure/precedence, formatter handles presentation
+- Enables recursive right-alignment at each nesting level
 
 ### Why Tuple-Based AST?
 
@@ -441,23 +499,6 @@ Predicates use tuple arrays `[operator, ...operands]` rather than objects:
 - Inspired by Lisp/Clojure s-expressions (proven design)
 - Natural recursive processing
 - Less verbose for hand-written queries
-
-## Future Enhancements
-
-### Detailed Tokenizer
-
-Implement structured token output for rich rendering:
-
-```typescript
-type DetailedToken = [string, (string | DetailedToken)[]];
-
-// Example
-['WHERE', [
-  { type: 'operator', value: '=' },
-  { type: 'column', value: 'role' },
-  { type: 'literal', value: 'admin' }
-]]
-```
 
 ### Query Validation
 

@@ -10,3 +10,10 @@ export const like = 'LIKE';
 // Logical operators
 export const and = 'and';
 export const or = 'or';
+
+export const sqlKeywords = {
+  select: 'SELECT',
+  from: 'FROM',
+  where: 'WHERE',
+  orderBy: 'ORDER BY',
+}
