@@ -2,32 +2,14 @@
 
 ## Overview
 
-Manuka is a lightweight SQL query builder for JavaScript/TypeScript that converts structured AST objects into formatted SQL strings. The architecture is designed around three core principles:
+Manuka is a lightweight SQL query builder for JavaScript/TypeScript that
+converts structured AST objects into formatted SQL strings. The architecture is
+designed around three core principles:
 
-1. **Separation of Concerns**: Clear boundaries between AST structure, tokenization, and formatting
+1. **Separation of Concerns**: Clear boundaries between AST structure,
+   tokenization, and formatting
 2. **Performance**: Optimized for runtime SQL generation with minimal overhead
-3. **Extensibility**: Support for multiple output formats without code duplication
-
-## Design Philosophy
-
-### Inspired by HoneySQL
-
-Manuka's AST design is inspired by [HoneySQL](https://github.com/seancorfield/honeysql), a Clojure SQL builder. The tuple-based predicate representation enables:
-
-- Natural recursive processing of nested expressions
-- Type-safe handling of different operator types
-- Clean separation between tokens (literals) and compound expressions
-- Easy parenthesis insertion based on operator precedence
-
-### Why Not an ORM or Query Builder DSL?
-
-Manuka intentionally avoids the fluent/chainable API pattern common in JavaScript query builders. Instead, it uses plain data structures (objects and arrays) because:
-
-- **Composability**: AST fragments can be easily merged and manipulated
-- **Serialization**: Plain objects can be JSON serialized
-- **Simplicity**: Method chaining can be in any order:
-  - `select(all).from('table')` is equivalent to `from('table').select(all)`
-- **Flexibility**: Easy to programmatically generate queries
+3. **Extensibility**: Support for multiple output formats.
 
 ## Architecture Layers
 
@@ -43,7 +25,8 @@ Manuka intentionally avoids the fluent/chainable API pattern common in JavaScrip
 │  - Walks clause structure (SELECT, FROM, etc.)  │
 │  - Processes WHERE predicate trees              │
 │  - Formats leaf expressions                     │
-│  - Returns flat array of tokens                 │
+│  - Returns flat array of tokens that can be     |
+|    easily formatted.                            │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
@@ -59,6 +42,9 @@ Manuka intentionally avoids the fluent/chainable API pattern common in JavaScrip
 │  (Sent to database or used in application)      │
 └─────────────────────────────────────────────────┘
 ```
+
+If the provided tokenizer and formatter are not suitable, you can provide your
+own.
 
 ## Core Concepts
 
@@ -108,7 +94,8 @@ type ExprToken = [string, string | ExprToken[]];
 
 Each token is a tuple of `[keyword, operand]`:
 - **Keyword**: SQL clause keyword (SELECT, FROM, WHERE, AND, OR, etc.)
-- **Operand**: Either a string (for simple clauses) or a nested array of ExprTokens (for compound predicates)
+- **Operand**: Either a string (for simple clauses) or a nested array of
+  ExprTokens (for compound predicates)
 
 **Example Token Array (Simple):**
 ```typescript
@@ -136,48 +123,33 @@ Each token is a tuple of `[keyword, operand]`:
 
 ### Tokenizers
 
-Tokenizers convert AST objects into token arrays. Different tokenizers can produce different levels of detail:
+Tokenizers convert AST objects into token arrays. Manuka comes with just one
+tokenizer, but the formatter builder can be provided with a custom tokenizer
+and formatter at runtime to to fulfill the needs of the user.
 
-#### Lightweight Tokenizer (Current Implementation)
+The tokenizer provided by Manuka is designed to produce a data structure from
+which the formatter can easily render the pretty-printed string.
 
-Converts AST predicates into structured token arrays:
+To this end, each line of the expression is represented by a tuple containing 2
+elements.  The 1st element contains the left hand side of the expression, while
+the 2nd element contains the right hand side.
 
-```typescript
-// Input AST (simple predicate)
-where: ['=', 'role', 'admin']
+The 2nd element can also provide a nested expression that will be indented in
+the formatted output.
 
-// Output Token
-['WHERE', 'role = admin']
+See an example output of the pretty formatter below.
 
-// Input AST (compound predicate)
-where: ['and', ['=', 'active', 'true'], ['or', ['=', 'role', 'admin'], ['=', 'role', 'mod']]]
-
-// Output Tokens
-[
-  ['WHERE', 'active = true'],
-  ['AND', [
-    ['', 'role = admin'],
-    ['OR', 'role = mod']
-  ]]
-]
-```
-
-**Use Case:** Runtime SQL generation for database queries
-
-**Characteristics:**
-- Produces structured tokens (strings for simple predicates, nested arrays for compound predicates)
-- Handles operator precedence and determines when parentheses are needed
-- Splits top-level AND/OR into separate tokens
-- Formatter makes final layout decisions (single-line vs. multi-line)
-- Minimal memory allocation, suitable for high-frequency operations
+This tokenizer is also used by the separator formatter, which provides the string for
+the db query interface.
 
 ### Formatters
 
-Formatters convert token arrays into formatted SQL strings. Each formatter handles presentation concerns:
+Formatters convert token arrays into formatted SQL strings. Each formatter
+handles presentation concerns:
 
 #### Separator Formatter
 
-Joins tokens with a configurable separator (space or newline):
+Joins tokens with a configurable separator (space, newline, or any other string):
 
 ```typescript
 // With space separator
@@ -199,35 +171,6 @@ Right-aligns keywords for visual clarity:
    WHERE active = true
      AND age > 18
 ORDER BY name
-```
-
-**How it Works:**
-1. Calculate longest keyword across all tokens at each nesting level
-2. Apply padding to right-align each keyword within its level
-3. Handle nested predicates:
-   - Recursively apply alignment to nested token arrays
-   - Decide whether to render on single line or multiple lines
-   - Add parentheses and indentation for multi-line nested predicates
-4. Join with newlines
-
-**Nested Predicate Handling:**
-
-The formatter receives structured nested arrays and decides layout:
-
-```typescript
-// Token input
-['AND', [
-  ['', 'role = admin'],
-  ['OR', 'role = mod']
-]]
-
-// Single-line output (simple case)
-AND (role = admin OR role = mod)
-
-// Multi-line output (complex case)
-AND (role = admin
-  OR role = mod
-)
 ```
 
 ### Formatter Builder
@@ -263,20 +206,6 @@ The architecture uses a two-pass approach for all formatters:
 - **Extensibility**: New formatters work with existing tokenizers
 - **Clarity**: Clear data flow with explicit intermediate representation
 
-**Performance Considerations:**
-
-The two-pass approach involves an intermediate token array allocation. However:
-
-- Token arrays are small (3-7 elements for typical queries)
-- Modern JS engines optimize small array allocations
-- AST traversal (WHERE predicate trees) dominates processing time
-- The overhead is negligible compared to database network I/O
-
-**Measurement:**
-- Tokenization + formatting: ~microseconds for typical queries
-- Database round-trip: ~milliseconds
-- The tokenization cost is <1% of total query execution time
-
 ### Alternative: Single-Pass Processing
 
 A single-pass approach (tokenize and format each clause immediately) was considered:
@@ -286,76 +215,12 @@ A single-pass approach (tokenize and format each clause immediately) was conside
 - Potentially lower memory usage
 
 **Cons:**
-- Cannot calculate metadata across all clauses (e.g., max keyword length for alignment)
-- Mixed responsibilities (structure + presentation in one pass)
-- More complex to implement and reason about
+- Cannot calculate metadata across all clauses (e.g., max keyword length for
+  alignment)
 - Negligible performance benefit for typical use cases
 
-**Decision:** The clean separation and clarity of two-pass architecture outweighs the minimal performance cost.
-
-## Handling WHERE Predicates
-
-### Operator Precedence
-
-The tokenizer handles operator precedence to ensure correct parenthesization:
-
-**AST:**
-```typescript
-where: ['and',
-  ['=', 'active', 'true'],
-  ['or',
-    ['=', 'role', 'admin'],
-    ['=', 'role', 'mod']
-  ]
-]
-```
-
-**Tokens:**
-```typescript
-[
-  ['WHERE', 'active = true'],
-  ['AND', [
-    ['', 'role = admin'],
-    ['OR', 'role = mod']
-  ]]
-]
-```
-
-**Rules:**
-- OR nested inside AND gets parentheses (handled by nested array structure)
-- AND nested inside OR does not need parentheses (AND has higher precedence)
-- Tokenizer produces nested arrays for compound predicates
-- Formatter adds parentheses and decides single-line vs. multi-line layout
-
-### Splitting Top-Level AND
-
-Top-level AND predicates are split into separate tokens for pretty formatting:
-
-**AST:**
-```typescript
-where: ['and',
-  ['<>', 'status', 'deleted'],
-  ['>', 'age', '18'],
-  ['=', 'active', 'true']
-]
-```
-
-**Tokens:**
-```typescript
-[
-  ['WHERE', 'status <> deleted'],
-  ['AND', 'age > 18'],
-  ['AND', 'active = true']
-]
-```
-
-This enables the pretty formatter to align each AND on its own line:
-
-```sql
- WHERE status <> deleted
-   AND age > 18
-   AND active = true
-```
+**Decision:** The clean separation and clarity of two-pass architecture
+outweighs the minimal performance cost.
 
 ## Extensibility
 
@@ -381,9 +246,13 @@ Detailed tokenizers can be implemented for specialized use cases:
 
 ```typescript
 // HTML syntax highlighting tokenizer
-function htmlTokenizer(ast: AST): ExprToken[] {
+function htmlTokenizer(ast: AST): HtmlExprToken[] {
   // Preserve operator/operand structure
   // Return tokens with nested arrays
+}
+
+function htmlFormatter(tokens: HtmlExprToken[]): string {
+  // ...
 }
 
 const htmlFormat = formatter({
@@ -391,74 +260,6 @@ const htmlFormat = formatter({
   formatter: htmlFormatter  // Applies CSS classes to operators vs operands
 });
 ```
-
-### Use Cases for Custom Formatters
-
-- **SQL Dialect Translation**: Convert tokens to MySQL, PostgreSQL, SQLite syntax
-- **Query Analysis**: Inspect token structure for optimization suggestions
-- **Documentation Generation**: Extract query patterns for API docs
-- **Query Debugging**: Pretty-print with execution plan annotations
-- **Testing**: Generate test fixtures from AST structures
-
-## Performance Optimization Strategies
-
-### For High-Frequency Queries
-
-If SQL generation becomes a bottleneck (rare), consider:
-
-1. **Caching**: Memoize formatted SQL strings
-   ```typescript
-   const cache = new Map();
-   function cachedFormat(ast) {
-     const key = JSON.stringify(ast);
-     if (!cache.has(key)) {
-       cache.set(key, format(ast));
-     }
-     return cache.get(key);
-   }
-   ```
-
-2. **Prepared Statements**: Use parameterized queries instead of regenerating SQL
-   ```typescript
-   // Instead of regenerating SQL for each user ID
-   SELECT * FROM users WHERE id = ?
-   ```
-
-3. **Template Literals**: For simple queries, use template strings directly
-   ```typescript
-   const sql = `SELECT ${columns.join(', ')} FROM ${table}`;
-   ```
-
-### When to Use Manuka
-
-Manuka is intended for:
-- ✅ Programmatically generated queries
-- ✅ Dynamic clause composition
-- ✅ Query manipulation and transformation
-- ✅ Multiple output formats from same AST
-- ✅ Complex joins and subqueries (may be clearer in raw SQL)
-
-## Design Rationale
-
-### Why Flat Token Arrays?
-
-Tokens are returned as flat arrays rather than nested structures:
-
-```typescript
-// Flat (what we use)
-
-// Nested (alternative)
-[
-  ['WHERE', ['active = true', 'age > 18']]
-]
-```
-
-**Rationale:**
-- Flat structure makes each AND/OR explicit for pretty formatting
-- Easier to calculate keyword alignment across all tokens
-- Simpler iteration in formatters
-- More flexible for token manipulation
-
 ### Why Tokenizer Produces Structured Tokens?
 
 The lightweight tokenizer converts predicates to strings but preserves structure for compound expressions:
