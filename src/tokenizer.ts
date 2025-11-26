@@ -19,8 +19,12 @@ export function tokenize(ast: AST) {
   }
 
   if (ast.orderBy) {
-    const parts = ast.orderBy as any;
-    tokens.push(['ORDER BY', `${parts[0]} ${parts[1].toUpperCase()}`]);
+    if (typeof ast.orderBy === 'string') {
+      tokens.push(['ORDER BY', ast.orderBy]);
+    } else {
+      const [field, direction] = ast.orderBy;
+      tokens.push(['ORDER BY', `${field} ${direction.toUpperCase()}`]);
+    }
   }
 
   return tokens;

@@ -1,4 +1,4 @@
-import type { ExprToken } from './types';
+import type { ExprToken } from './types.ts';
 
 export function prettyFormatter(tokens: ExprToken | ExprToken[]): string {
   // Handle single token case

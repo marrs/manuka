@@ -1,4 +1,4 @@
-import type { AST, Token, CompoundExpr, Expr } from './types';
+import type { AST, Atom, CompoundExpr, Expr } from './types.ts';
 
 function stringifyToken(token: number | string | null) {
   if (typeof token === 'string' || typeof token === 'number') {
@@ -24,7 +24,7 @@ function isToken(expr: Expr) {
 function formatExpression(expr: Expr, parentOp?: string): string {
   // Base case: literals (strings, numbers)
   if (isToken(expr)) {
-    return stringifyToken(expr as Token);
+    return stringifyToken(expr as Atom);
   }
 
   const [op, ...args] = expr as CompoundExpr;
@@ -37,12 +37,12 @@ function formatExpression(expr: Expr, parentOp?: string): string {
 
   // Logical operators
   if (op === 'and') {
-    const formatted = args.map(arg => formatExpression(arg, 'and')).join(' AND ');
+    const formatted = args.map((arg: Expr) => formatExpression(arg, 'and')).join(' AND ');
     return formatted;
   }
 
   if (op === 'or') {
-    const formatted = args.map(arg => formatExpression(arg, 'or')).join(' OR ');
+    const formatted = args.map((arg: Expr) => formatExpression(arg, 'or')).join(' OR ');
     // Add parentheses if OR is nested inside AND
     if (parentOp === 'and') {
       return `(${formatted})`;
@@ -51,7 +51,7 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   }
 
   // Functions (COUNT, SUM, etc.) - for future use
-  return `${op}(${args.map(arg => formatExpression(arg, op)).join(', ')})`;
+  return `${op}(${args.map((arg: Expr) => formatExpression(arg, op)).join(', ')})`;
 }
 
 export function validate(ast: Partial<AST>): void {
@@ -115,7 +115,12 @@ function prettyFormat(ast: AST, indent: string = ''): string {
   }
 
   if (ast.orderBy) {
-    lines.push(['ORDER BY', ast.orderBy]);
+    if (typeof ast.orderBy === 'string') {
+      lines.push(['ORDER BY', ast.orderBy]);
+    } else {
+      const [field, direction] = ast.orderBy;
+      lines.push(['ORDER BY', `${field} ${direction.toUpperCase()}`]);
+    }
   }
 
   const longestKeyword = lines.reduce((acc, line) => {
@@ -131,7 +136,7 @@ function prettyFormat(ast: AST, indent: string = ''): string {
 
 function prettyFormatWhereClause(expr: Expr): Array<ExprToken> {
   if (isToken(expr)) {
-    return [['WHERE', stringifyToken(expr as Token)]];
+    return [['WHERE', stringifyToken(expr as Atom)]];
   }
 
   const [op, ...args] = expr as CompoundExpr;
@@ -182,8 +187,8 @@ format.nlprint = function(ast: AST): string {
   return output;
 };
 
-format.pretty = function(ast: AST): string {
-  return prettyFormat(ast);
+format.pretty = function(ast: AST, indent?: string): string {
+  return prettyFormat(ast, indent);
 };
 
 format.pprint = function(ast: AST): string {

@@ -23,5 +23,5 @@ export type AST = {
   select?: string[],
   from?: string[],
   where?: Expr,
-  orderBy?: string,
+  orderBy?: string | [string, string],
 }
