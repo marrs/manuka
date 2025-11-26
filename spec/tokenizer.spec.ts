@@ -175,9 +175,7 @@ describe('tokenizer', () => {
   });
 
   context('from clause', () => {
-    it('should tokenize FROM clause', () => {
-      // AST: from: ['users', 'accounts']
-      // Token: ['FROM', 'users, accounts']
+    it('tokenises FROM clause', () => {
       expect(tokenize({
         from: ['a', 'b',]
       })).to.eql([
@@ -187,17 +185,25 @@ describe('tokenizer', () => {
   });
 
   context('order by clause', () => {
-    it('should tokenize ORDER BY clause', () => {
+    it('tokenises ORDER BY clause with field and direction', () => {
       expect(tokenize({
         orderBy: ['id', 'asc',]
       })).to.eql([
         ['ORDER BY', 'id ASC']
       ]);
     });
+
+    it('tokenises ORDER BY clause with just field name', () => {
+      expect(tokenize({
+        orderBy: 'id'
+      })).to.eql([
+        ['ORDER BY', 'id']
+      ]);
+    });
   });
 
   context('complete expression', () => {
-    it('should combine all clauses in correct order', () => {
+    it('combines all clauses in correct order', () => {
       expect(tokenize({
         select: ['id', 'name', 'email'],
         from: ['a', 'b',]
