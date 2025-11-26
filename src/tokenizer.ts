@@ -1,4 +1,7 @@
-import type { AST, Expr, Atom, CompoundExpr, ExprToken } from './types.ts';
+import type {
+  AST, Expr, Atom, CompoundExpr, ExprToken,
+  ComparisonExpr, LogicalExpr, LogicalOp
+} from './types.ts';
 
 export function tokenize(ast: AST) {
   const tokens: ExprToken[] = [];
@@ -32,14 +35,13 @@ function tokenizeExpr(expr: Expr, keyword: string): ExprToken[] {
     return [[keyword, formatValue(expr)]];
   }
 
-  const [operator, ...operands] = expr;
-
-  if (isComparisonOperator(operator)) {
-    const [left, right] = operands;
+  if (isComparisonExpr(expr)) {
+    const [operator, left, right] = expr;
     return [[keyword, `${left} ${operator} ${formatValue(right)}`]];
   }
 
-  if (operator === 'and' || operator === 'or') {
+  if (isLogicalExpr(expr)) {
+    const [operator, ...operands] = expr;
     return tokenizeLogical(operator, operands, keyword);
   }
 
@@ -47,7 +49,7 @@ function tokenizeExpr(expr: Expr, keyword: string): ExprToken[] {
 }
 
 function tokenizeLogical(
-  operator: 'and' | 'or',
+  operator: LogicalOp,
   operands: Expr[],
   firstKeyword: string
 ): ExprToken[] {
@@ -61,30 +63,41 @@ function tokenizeLogical(
     if (!isCompoundExpr(operand)) {
       // Simple atom
       tokens.push([currentKeyword, formatValue(operand)]);
-    } else {
+    } else if (isComparisonExpr(operand)) {
+      // Comparison predicate
+      const [op, left, right] = operand;
+      tokens.push([currentKeyword, `${left} ${op} ${formatValue(right)}`]);
+    } else if (isLogicalExpr(operand)) {
+      // Nested logical expression
       const [op, ...subOperands] = operand;
 
-      if (isComparisonOperator(op)) {
-        // Comparison predicate
-        const [left, right] = subOperands;
-        tokens.push([currentKeyword, `${left} ${op} ${formatValue(right)}`]);
-      } else if (op === 'and' || op === 'or') {
-        // Nested logical expression
-        // Precedence rule: OR inside AND needs nesting, AND inside OR flattens
-        if (operator === 'and' && op === 'or') {
-          // OR inside AND: create nested array
-          const nestedTokens = tokenizeLogical(op, subOperands, '');
-          tokens.push([currentKeyword, nestedTokens]);
-        } else {
-          // AND inside OR or same operator: flatten
-          const flatTokens = tokenizeLogical(op, subOperands, currentKeyword);
-          tokens.push(...flatTokens);
-        }
+      // Precedence rule: OR inside AND needs nesting, AND inside OR flattens
+      if (operator === 'and' && op === 'or') {
+        // OR inside AND: create nested array
+        const nestedTokens = tokenizeLogical(op, subOperands, '');
+        tokens.push([currentKeyword, nestedTokens]);
+      } else {
+        // AND inside OR or same operator: flatten
+        const flatTokens = tokenizeLogical(op, subOperands, currentKeyword);
+        tokens.push(...flatTokens);
       }
     }
   }
 
   return tokens;
+}
+
+function isCompoundExpr(expr: Expr): expr is CompoundExpr {
+  return Array.isArray(expr);
+}
+
+function isComparisonExpr(expr: CompoundExpr): expr is ComparisonExpr {
+  return isComparisonOperator(expr[0]);
+}
+
+function isLogicalExpr(expr: CompoundExpr): expr is LogicalExpr {
+  const op = expr[0];
+  return op === 'and' || op === 'or';
 }
 
 function isComparisonOperator(op: string): boolean {
@@ -95,8 +108,4 @@ function formatValue(value: Atom): string {
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   return value;
-}
-
-function isCompoundExpr(expr: Expr): expr is CompoundExpr {
-  return Array.isArray(expr);
 }
