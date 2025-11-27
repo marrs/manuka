@@ -1,4 +1,6 @@
 import type { AST, Atom, CompoundExpr, Expr } from './types.ts';
+import { tokenize } from './tokenizer.ts';
+import { prettyFormatter } from './formatters.ts';
 
 function stringifyToken(token: number | string | null) {
   if (typeof token === 'string' || typeof token === 'number') {
@@ -94,83 +96,9 @@ function formatWithSeparator(ast: AST, separator: string): string {
   return result.join(separator);
 }
 
-type ExprToken = [string, string];
-
 function prettyFormat(ast: AST): string {
-  const lines: Array<ExprToken> = [];
-
-  // Collect clauses with their keywords
-  if (ast.select) {
-    lines.push(['SELECT', ast.select.join(', ')]);
-  }
-
-  if (ast.from) {
-    lines.push(['FROM', ast.from.join(', ')]);
-  }
-
-  if (ast.where) {
-    // For WHERE with logical operators, we need to split them
-    const whereClauses = prettyFormatWhereClause(ast.where);
-    lines.push(...whereClauses);
-  }
-
-  if (ast.orderBy) {
-    if (typeof ast.orderBy === 'string') {
-      lines.push(['ORDER BY', ast.orderBy]);
-    } else {
-      const [field, direction] = ast.orderBy;
-      lines.push(['ORDER BY', `${field} ${direction.toUpperCase()}`]);
-    }
-  }
-
-  const longestKeyword = lines.reduce((acc, line) => {
-    return line[0].length > acc? line[0].length : acc;
-  }, 0);
-
-  return lines.map(line => {
-    const keyword = line[0];
-    const padding = ' '.repeat(longestKeyword - keyword.length);
-    return padding + keyword + ' ' + line[1];
-  }).join('\n');
-}
-
-function prettyFormatWhereClause(expr: Expr): Array<ExprToken> {
-  if (isToken(expr)) {
-    return [['WHERE', stringifyToken(expr as Atom)]];
-  }
-
-  const [op, ...args] = expr as CompoundExpr;
-
-  // For AND at the top level, split into multiple lines
-  if (op === 'and') {
-    const result: Array<ExprToken> = [];
-    for (let i = 0; i < args.length; i++) {
-      const formatted = formatExpression(args[i]);
-      if (i === 0) {
-        result.push(['WHERE', formatted]);
-      } else {
-        result.push(['AND', formatted]);
-      }
-    }
-    return result;
-  }
-
-  // For OR at the top level, split into multiple lines
-  if (op === 'or') {
-    const result: Array<ExprToken> = [];
-    for (let i = 0; i < args.length; i++) {
-      const formatted = formatExpression(args[i]);
-      if (i === 0) {
-        result.push(['WHERE', formatted]);
-      } else {
-        result.push(['OR', formatted]);
-      }
-    }
-    return result;
-  }
-
-  // Otherwise, format as a single expression
-  return [['WHERE', formatExpression(expr)]];
+  const tokens = tokenize(ast);
+  return prettyFormatter(tokens);
 }
 
 export function format(ast: AST): string {
