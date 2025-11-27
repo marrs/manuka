@@ -181,28 +181,3 @@ describe('format.pprint', () => {
     consoleDebugStub.restore();
   });
 });
-
-describe.skip('indentation configuration', () => {
-  it('format.pretty uses default 2-space indentation.', () => {
-    expect(format.pretty({
-      select: ['*'],
-      from: ['users'],
-      where: [and, [eq, 'active', 'true'], [eq, 'role', 'admin']]
-    })).to.eql("SELECT *\n  FROM users\n WHERE active = true\n   AND role = admin");
-  });
-
-  it('format.pretty accepts custom indentation string.', () => {
-    expect(format.pretty({
-      select: ['*'],
-      from: ['users'],
-      where: [and, [eq, 'active', 'true'], [eq, 'role', 'admin']]
-    }, '    ')).to.eql("SELECT *\n    FROM users\n   WHERE active = true\n     AND role = admin");
-  });
-
-  it('format.pretty accepts tab indentation.', () => {
-    expect(format.pretty({
-      select: ['*'],
-      from: ['users']
-    }, '\t')).to.eql("SELECT *\n FROM users");
-  });
-});

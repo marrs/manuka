@@ -96,7 +96,7 @@ function formatWithSeparator(ast: AST, separator: string): string {
 
 type ExprToken = [string, string];
 
-function prettyFormat(ast: AST, indent: string = ''): string {
+function prettyFormat(ast: AST): string {
   const lines: Array<ExprToken> = [];
 
   // Collect clauses with their keywords
@@ -130,7 +130,7 @@ function prettyFormat(ast: AST, indent: string = ''): string {
   return lines.map(line => {
     const keyword = line[0];
     const padding = ' '.repeat(longestKeyword - keyword.length);
-    return indent + padding + keyword + ' ' + line[1];
+    return padding + keyword + ' ' + line[1];
   }).join('\n');
 }
 
@@ -187,8 +187,8 @@ format.nlprint = function(ast: AST): string {
   return output;
 };
 
-format.pretty = function(ast: AST, indent?: string): string {
-  return prettyFormat(ast, indent);
+format.pretty = function(ast: AST): string {
+  return prettyFormat(ast);
 };
 
 format.pprint = function(ast: AST): string {
