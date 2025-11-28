@@ -11,3 +11,5 @@ target
 
 # PnP files (generated)
 .pnp.*
+
+node_modules
