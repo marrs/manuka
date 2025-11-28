@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { format, partial, validate } from '../src/builder.ts';
+import { format, partial, validate } from '../src/index.ts';
 import { and, or, eq, ne, lt, gt, gte } from '../src/vocabulary.ts';
 
 describe('format', () => {
