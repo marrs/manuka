@@ -1,5 +1,49 @@
 import type { ExprToken } from './types.ts';
 
+function formatSimpleOperand(operand: string | ExprToken[]): string {
+  if (typeof operand === 'string') {
+    return operand;
+  } else {
+    // Recursively format nested arrays
+    return formatNested(operand);
+  }
+}
+
+function formatNested(nestedTokens: ExprToken[]): string {
+  const parts = nestedTokens.map(([op, pred], index) => {
+    const formattedPred = formatSimpleOperand(pred);
+    if (index === 0) {
+      return formattedPred; // First item has empty operator
+    } else {
+      return `${op} ${formattedPred}`;
+    }
+  });
+
+  return `(${parts.join(' ')})`;
+}
+
+function formatSimple(token: ExprToken): string {
+  const [keyword, operand] = token;
+
+  if (typeof operand === 'string') {
+    return `${keyword} ${operand}`;
+  } else {
+    // Nested tokens - format inline with no indentation
+    return `${keyword} ${formatNested(operand)}`;
+  }
+}
+
+export function separatorFormatter(separator: string, tokens: ExprToken | ExprToken[]): string {
+  // Handle single token case
+  if (!Array.isArray(tokens[0])) {
+    return formatSimple(tokens as ExprToken);
+  }
+
+  // Handle array of tokens
+  const lines = (tokens as ExprToken[]).map(formatSimple);
+  return lines.join(separator);
+}
+
 export function prettyFormatter(tokens: ExprToken | ExprToken[]): string {
   // Handle single token case
   if (!Array.isArray(tokens[0])) {

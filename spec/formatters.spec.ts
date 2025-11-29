@@ -43,7 +43,7 @@ import chaiString from 'chai-string';
 
 use(chaiString);
 import './chai-extensions';
-import { prettyFormatter } from '../src/formatters.ts';
+import { prettyFormatter, separatorFormatter } from '../src/formatters.ts';
 
 describe('pretty formatter', () => {
   context('where clause', () => {
@@ -239,6 +239,177 @@ describe('pretty formatter', () => {
           ['OR', 'role = mod']
         ]]
       ])).to.eql('SELECT id\n  FROM users\n WHERE active = true\n   AND (role = admin OR role = mod)');
+    });
+  });
+});
+
+describe('separator formatter', () => {
+  context('where clause', () => {
+    it('renders a clause with a single predicate on one line', () => {
+      expect(separatorFormatter('\n', ['WHERE', 'id = 1'])).to.eql('WHERE id = 1');
+    });
+
+    it('renders a clause with a single token value on one line', () => {
+      expect(separatorFormatter('\n', ['WHERE', '1'])).to.eql('WHERE 1');
+    });
+
+    it('joins multiple clauses with newlines without indentation', () => {
+      expect(separatorFormatter('\n', [
+        ['SELECT', 'id'],
+        ['FROM', 'users'],
+        ['WHERE', 'active = true']
+      ])).to.eql('SELECT id\nFROM users\nWHERE active = true');
+    });
+
+    it('separates AND clauses with newlines without alignment', () => {
+      const result = separatorFormatter('\n', [
+        ['WHERE', 'status = active'],
+        ['AND', 'age > 18']
+      ]).split('\n');
+      expect(result[0]).to.have.leadingSpaces(0);
+      expect(result[1]).to.have.leadingSpaces(0);  // No indentation
+      expect(result[1]).to.eql('AND age > 18');
+    });
+
+    it('separates multiple AND predicates with newlines', () => {
+      const result = separatorFormatter('\n', [
+        ['WHERE', 'status = active'],
+        ['AND', 'age > 18'],
+        ['AND', 'role = admin']
+      ]).split('\n');
+      expect(result[0]).to.eql('WHERE status = active');
+      expect(result[1]).to.eql('AND age > 18');
+      expect(result[2]).to.eql('AND role = admin');
+    });
+
+    it('separates OR clauses with newlines without alignment', () => {
+      const result = separatorFormatter('\n', [
+        ['WHERE', 'role = admin'],
+        ['OR', 'role = mod']
+      ]).split('\n');
+      expect(result[0]).to.have.leadingSpaces(0);
+      expect(result[1]).to.have.leadingSpaces(0);  // No indentation
+    });
+
+    it('separates multiple OR predicates with newlines', () => {
+      const result = separatorFormatter('\n', [
+        ['WHERE', 'status = active'],
+        ['OR', 'age > 18'],
+        ['OR', 'role = admin']
+      ]).split('\n');
+      expect(result[0]).to.eql('WHERE status = active');
+      expect(result[1]).to.eql('OR age > 18');
+      expect(result[2]).to.eql('OR role = admin');
+    });
+
+    describe('nested predicates', () => {
+      it('brackets a nested predicate on one line', () => {
+        expect(separatorFormatter('\n', [
+          ['AND', [
+            ['', 'role = admin'],
+            ['OR', 'role = mod']
+          ]]
+        ])).to.eql('AND (role = admin OR role = mod)');
+      });
+
+      it('renders all nested predicates on single line regardless of count', () => {
+        expect(separatorFormatter('\n', [
+          ['AND', [
+            ['', 'shipping_country = US'],
+            ['OR', 'shipping_country = CA'],
+            ['OR', 'shipping_country = MX']
+          ]]
+        ])).to.eql('AND (shipping_country = US OR shipping_country = CA OR shipping_country = MX)');
+      });
+
+      it('formats nested predicates inline with parent clause', () => {
+        expect(separatorFormatter('\n', [
+          ['WHERE', 'active = true'],
+          ['AND', [
+            ['', 'shipping_country = US'],
+            ['OR', 'shipping_country = CA'],
+            ['OR', 'shipping_country = MX']
+          ]]
+        ])).to.eql('WHERE active = true\nAND (shipping_country = US OR shipping_country = CA OR shipping_country = MX)');
+      });
+
+      it('handles deeply nested predicates inline', () => {
+        expect(separatorFormatter('\n', [
+          ['WHERE', 'active = true'],
+          ['AND', [
+            ['', 'status = pending'],
+            ['OR', [
+              ['', 'role = admin'],
+              ['AND', 'dept = IT']
+            ]]
+          ]]
+        ])).to.eql('WHERE active = true\nAND (status = pending OR (role = admin AND dept = IT))');
+      });
+
+      it('formats 2-predicate nested array on single line', () => {
+        expect(separatorFormatter('\n', [
+          ['AND', [
+            ['', 'a'],
+            ['OR', 'b']
+          ]]
+        ])).to.eql('AND (a OR b)');
+      });
+
+      it('formats 3+ predicate nested array on single line', () => {
+        expect(separatorFormatter('\n', [
+          ['AND', [
+            ['', 'a'],
+            ['OR', 'b'],
+            ['OR', 'c']
+          ]]
+        ])).to.eql('AND (a OR b OR c)');
+      });
+    });
+  });
+
+  describe('no alignment behavior', () => {
+    it('does not align clause operators', () => {
+      const result = separatorFormatter('\n', [
+        ['SELECT', 'id, name'],
+        ['FROM', 'users'],
+        ['WHERE', 'active = true'],
+        ['AND', 'id > 4'],
+        ['OR', 'name = Bob'],
+        ['ORDER BY', 'name']
+      ]).split('\n');
+
+      // All lines should have no leading spaces
+      result.forEach(line => {
+        expect(line).to.have.leadingSpaces(0);
+      });
+    });
+  });
+
+  describe('complete expression', () => {
+    it('correctly formats an expression with nested predicates', () => {
+      expect(separatorFormatter('\n', [
+        ['SELECT', 'id'],
+        ['FROM', 'users'],
+        ['WHERE', 'active = true'],
+        ['AND', [
+          ['', 'role = admin'],
+          ['OR', 'role = mod']
+        ]]
+      ])).to.eql('SELECT id\nFROM users\nWHERE active = true\nAND (role = admin OR role = mod)');
+    });
+
+    it('formats complex expressions without any indentation', () => {
+      const result = separatorFormatter('\n', [
+        ['SELECT', 'id, name'],
+        ['FROM', 'users'],
+        ['WHERE', 'active = true'],
+        ['AND', [
+          ['', 'shipping_country = US'],
+          ['OR', 'shipping_country = CA']
+        ]],
+        ['ORDER BY', 'name']
+      ]);
+      expect(result).to.eql('SELECT id, name\nFROM users\nWHERE active = true\nAND (shipping_country = US OR shipping_country = CA)\nORDER BY name');
     });
   });
 });
