@@ -38,7 +38,7 @@ designed around three core principles:
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
-│                 SQL String                      │
+│            SQL String and bindings              │
 │  (Sent to database or used in application)      │
 └─────────────────────────────────────────────────┘
 ```
