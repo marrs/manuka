@@ -68,46 +68,11 @@ describe('format', () => {
   });
 });
 
-describe('validate', () => {
-  it('throws when FROM clause is present without SELECT.', () => {
-    expect(() => validate({from: ['t1']})).to.throw(/FROM clause requires SELECT clause/);
-  });
-
-  it('throws when WHERE clause is present without FROM.', () => {
-    expect(() => validate({select: ['*'], where: [eq, 'id', '1']})).to.throw(/WHERE clause requires FROM clause/);
-  });
-
-  it('passes for valid DataDSL with SELECT and FROM.', () => {
-    expect(() => validate({select: ['*'], from: ['users']})).to.not.throw();
-  });
-
-  it('passes for valid DataDSL with SELECT, FROM, and WHERE.', () => {
-    expect(() => validate({select: ['*'], from: ['users'], where: [eq, 'id', '1']})).to.not.throw();
-  });
-});
-
-describe('format.newline', () => {
-  it('formats clauses with newlines.', () => {
-    expect(format.newline({
-      select: ['*'],
-      from: ['users']
-    })).to.eql("SELECT *\nFROM users");
-  });
-
-  it('formats a complete query with newlines.', () => {
-    expect(format.newline({
-      select: ['a', 'b', 'c'],
-      from: ['t1'],
-      where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
-    })).to.eql("SELECT a, b, c\nFROM t1\nWHERE b <> bar AND t1.a = baz");
-  });
-});
-
-describe('format.nlprint', () => {
+describe('format.print', () => {
   it('formats with newlines and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
-    const result = format.nlprint({
+    const result = format.print({
       select: ['*'],
       from: ['users']
     });
@@ -122,7 +87,7 @@ describe('format.nlprint', () => {
   it('returns the formatted output.', () => {
     const consoleDebugStub = sinon.stub(console, 'debug');
 
-    const result = format.nlprint({
+    const result = format.print({
       select: ['a', 'b'],
       from: ['t1']
     });

@@ -1,6 +1,6 @@
 import type { DataDSL, Atom, CompoundExpr, Expr } from './types.ts';
 import { tokenize } from './tokenizer.ts';
-import { prettyFormatter } from './formatters.ts';
+import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
 function stringifyToken(token: number | string | null) {
   if (typeof token === 'string' || typeof token === 'number') {
@@ -56,20 +56,6 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   return `${op}(${args.map((arg: Expr) => formatExpression(arg, op)).join(', ')})`;
 }
 
-export function validate(dsl: Partial<DataDSL>): void {
-  if (dsl.from && !dsl.select) {
-    throw new Error('FROM clause requires SELECT clause');
-  }
-  if (dsl.where && !dsl.from) {
-    throw new Error('WHERE clause requires FROM clause');
-  }
-}
-
-export function merge(target: Partial<DataDSL>, source: Partial<DataDSL>): Partial<DataDSL> {
-  Object.assign(target, source);
-  return target;
-}
-
 export function partial(...partials: Partial<DataDSL>[]): (target: Partial<DataDSL>) => Partial<DataDSL> {
   return (target: Partial<DataDSL>) => {
     for (const p of partials) {
@@ -79,21 +65,9 @@ export function partial(...partials: Partial<DataDSL>[]): (target: Partial<DataD
   };
 }
 
-function formatWithSeparator(dsl: DataDSL, separator: string): string {
-  let result: string[] = [];
-  if (dsl.select) {
-    result.push(`SELECT ${dsl.select.join(', ')}`);
-  }
-
-  if (dsl.from) {
-    result.push(`FROM ${dsl.from.join(', ')}`);
-  }
-
-  if (dsl.where) {
-    result.push(`WHERE ${formatExpression(dsl.where)}`);
-  }
-
-  return result.join(separator);
+function formatWithSeparator(separator: string, dsl: DataDSL): string {
+  const tokens = tokenize(dsl);
+  return separatorFormatter(separator, tokens);
 }
 
 function prettyFormat(dsl: DataDSL): string {
@@ -102,15 +76,11 @@ function prettyFormat(dsl: DataDSL): string {
 }
 
 export function format(dsl: DataDSL): string {
-  return formatWithSeparator(dsl, ' ');
+  return formatWithSeparator(' ', dsl);
 }
 
-format.newline = function(dsl: DataDSL): string {
-  return formatWithSeparator(dsl, '\n');
-};
-
-format.nlprint = function(dsl: DataDSL): string {
-  const output = formatWithSeparator(dsl, '\n');
+format.print = function(dsl: DataDSL): string {
+  const output = formatWithSeparator('\n', dsl);
   console.debug(output);
   return output;
 };
