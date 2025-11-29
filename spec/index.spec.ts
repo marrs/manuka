@@ -77,11 +77,11 @@ describe('validate', () => {
     expect(() => validate({select: ['*'], where: [eq, 'id', '1']})).to.throw(/WHERE clause requires FROM clause/);
   });
 
-  it('passes for valid AST with SELECT and FROM.', () => {
+  it('passes for valid DataDSL with SELECT and FROM.', () => {
     expect(() => validate({select: ['*'], from: ['users']})).to.not.throw();
   });
 
-  it('passes for valid AST with SELECT, FROM, and WHERE.', () => {
+  it('passes for valid DataDSL with SELECT, FROM, and WHERE.', () => {
     expect(() => validate({select: ['*'], from: ['users'], where: [eq, 'id', '1']})).to.not.throw();
   });
 });

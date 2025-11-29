@@ -1,28 +1,28 @@
 import type {
-  AST, Expr, Atom, CompoundExpr, ExprToken,
+  DataDSL, Expr, Atom, CompoundExpr, ExprToken,
   ComparisonExpr, LogicalExpr, LogicalOp
 } from './types.ts';
 
-export function tokenize(ast: AST) {
+export function tokenize(dsl: DataDSL) {
   const tokens: ExprToken[] = [];
 
-  if (ast.select) {
-    tokens.push(['SELECT', ast.select.join(', ')]);
+  if (dsl.select) {
+    tokens.push(['SELECT', dsl.select.join(', ')]);
   }
 
-  if (ast.from) {
-    tokens.push(['FROM', ast.from.join(', ')]);
+  if (dsl.from) {
+    tokens.push(['FROM', dsl.from.join(', ')]);
   }
 
-  if (ast.where) {
-    tokens.push(...tokenizeWhere(ast.where));
+  if (dsl.where) {
+    tokens.push(...tokenizeWhere(dsl.where));
   }
 
-  if (ast.orderBy) {
-    if (typeof ast.orderBy === 'string') {
-      tokens.push(['ORDER BY', ast.orderBy]);
+  if (dsl.orderBy) {
+    if (typeof dsl.orderBy === 'string') {
+      tokens.push(['ORDER BY', dsl.orderBy]);
     } else {
-      const [field, direction] = ast.orderBy;
+      const [field, direction] = dsl.orderBy;
       tokens.push(['ORDER BY', `${field} ${direction.toUpperCase()}`]);
     }
   }

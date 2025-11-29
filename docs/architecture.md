@@ -3,10 +3,10 @@
 ## Overview
 
 Manuka is a lightweight SQL query builder for JavaScript/TypeScript that
-converts structured AST objects into formatted SQL strings. The architecture is
-designed around three core principles:
+converts structured Data DSL objects into formatted SQL strings. The
+architecture is designed around three core principles:
 
-1. **Separation of Concerns**: Clear boundaries between AST structure,
+1. **Separation of Concerns**: Clear boundaries between DSL structure,
    tokenization, and formatting
 2. **Performance**: Optimized for runtime SQL generation with minimal overhead
 3. **Extensibility**: Support for multiple output formats.
@@ -16,17 +16,21 @@ designed around three core principles:
 ```
 ┌─────────────────────────────────────────────────┐
 │              Application Layer                  │
-│  (Builds AST objects with plain JS/TS)          │
+│  (Builds DSL objects with plain JS/TS)          │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
 │               Tokenizer Layer                   │
-│  Converts AST → Token Array                     │
+│  Converts DSL → Token Array                     │
 │  - Walks clause structure (SELECT, FROM, etc.)  │
 │  - Processes WHERE predicate trees              │
 │  - Formats leaf expressions                     │
 │  - Returns flat array of tokens that can be     |
 |    easily formatted.                            │
+│  - Converts internal `$` placeholders into      │
+│    driver specific placeholders (e.g. `?` for   │
+│    mysql).                                      │
+|                                                 │
 └─────────────────────────────────────────────────┘
                       ↓
 ┌─────────────────────────────────────────────────┐
@@ -48,16 +52,16 @@ own.
 
 ## Core Concepts
 
-### AST (Abstract Syntax Tree)
+### Data DSL (Domain Specific Language)
 
-The AST is a plain JavaScript object representing a SQL query structure:
+The DSL is a plain JavaScript object representing a SQL query structure:
 
 ```typescript
 type Token = string | number | null;
 type CompoundExpr = [string, ...Expr[]];
 type Expr = Token | CompoundExpr;
 
-type AST = {
+type DSL = {
   select?: string[];
   from?: string[];
   where?: Expr;
@@ -86,7 +90,7 @@ type AST = {
 
 ### Tokens
 
-Tokens are the intermediate representation between AST and formatted SQL:
+Tokens are the intermediate representation between DSL and formatted SQL:
 
 ```typescript
 type ExprToken = [string, string | ExprToken[]];
@@ -123,7 +127,7 @@ Each token is a tuple of `[keyword, operand]`:
 
 ### Tokenizers
 
-Tokenizers convert AST objects into token arrays. Manuka comes with just one
+Tokenizers convert DSL objects into token arrays. Manuka comes with just one
 tokenizer, but the formatter builder can be provided with a custom tokenizer
 and formatter at runtime to to fulfill the needs of the user.
 
@@ -195,7 +199,7 @@ format.pretty(ast)    // Right-aligned pretty print
 
 The architecture uses a two-pass approach for all formatters:
 
-1. **Pass 1 (Tokenization)**: AST → Token Array
+1. **Pass 1 (Tokenization)**: DSL → Token Array
 2. **Pass 2 (Formatting)**: Token Array → String
 
 **Benefits:**
@@ -246,7 +250,7 @@ Detailed tokenizers can be implemented for specialized use cases:
 
 ```typescript
 // HTML syntax highlighting tokenizer
-function htmlTokenizer(ast: AST): HtmlExprToken[] {
+function htmlTokenizer(ast: DSL): HtmlExprToken[] {
   // Preserve operator/operand structure
   // Return tokens with nested arrays
 }
@@ -282,7 +286,7 @@ The lightweight tokenizer converts predicates to strings but preserves structure
 - Clear separation: tokenizer handles structure/precedence, formatter handles presentation
 - Enables recursive right-alignment at each nesting level
 
-### Why Tuple-Based AST?
+### Why Tuple-Based DSL?
 
 Predicates use tuple arrays `[operator, ...operands]` rather than objects:
 
@@ -303,7 +307,7 @@ Predicates use tuple arrays `[operator, ...operands]` rather than objects:
 
 ### Query Validation
 
-Add AST validation before tokenization:
+Add DSL validation before tokenization:
 
 - Check for valid operator usage
 - Validate clause combinations

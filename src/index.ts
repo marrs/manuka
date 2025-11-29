@@ -1,4 +1,4 @@
-import type { AST, Atom, CompoundExpr, Expr } from './types.ts';
+import type { DataDSL, Atom, CompoundExpr, Expr } from './types.ts';
 import { tokenize } from './tokenizer.ts';
 import { prettyFormatter } from './formatters.ts';
 
@@ -56,22 +56,22 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   return `${op}(${args.map((arg: Expr) => formatExpression(arg, op)).join(', ')})`;
 }
 
-export function validate(ast: Partial<AST>): void {
-  if (ast.from && !ast.select) {
+export function validate(dsl: Partial<DataDSL>): void {
+  if (dsl.from && !dsl.select) {
     throw new Error('FROM clause requires SELECT clause');
   }
-  if (ast.where && !ast.from) {
+  if (dsl.where && !dsl.from) {
     throw new Error('WHERE clause requires FROM clause');
   }
 }
 
-export function merge(target: Partial<AST>, source: Partial<AST>): Partial<AST> {
+export function merge(target: Partial<DataDSL>, source: Partial<DataDSL>): Partial<DataDSL> {
   Object.assign(target, source);
   return target;
 }
 
-export function partial(...partials: Partial<AST>[]): (target: Partial<AST>) => Partial<AST> {
-  return (target: Partial<AST>) => {
+export function partial(...partials: Partial<DataDSL>[]): (target: Partial<DataDSL>) => Partial<DataDSL> {
+  return (target: Partial<DataDSL>) => {
     for (const p of partials) {
       Object.assign(target, p);
     }
@@ -79,48 +79,48 @@ export function partial(...partials: Partial<AST>[]): (target: Partial<AST>) => 
   };
 }
 
-function formatWithSeparator(ast: AST, separator: string): string {
+function formatWithSeparator(dsl: DataDSL, separator: string): string {
   let result: string[] = [];
-  if (ast.select) {
-    result.push(`SELECT ${ast.select.join(', ')}`);
+  if (dsl.select) {
+    result.push(`SELECT ${dsl.select.join(', ')}`);
   }
 
-  if (ast.from) {
-    result.push(`FROM ${ast.from.join(', ')}`);
+  if (dsl.from) {
+    result.push(`FROM ${dsl.from.join(', ')}`);
   }
 
-  if (ast.where) {
-    result.push(`WHERE ${formatExpression(ast.where)}`);
+  if (dsl.where) {
+    result.push(`WHERE ${formatExpression(dsl.where)}`);
   }
 
   return result.join(separator);
 }
 
-function prettyFormat(ast: AST): string {
-  const tokens = tokenize(ast);
+function prettyFormat(dsl: DataDSL): string {
+  const tokens = tokenize(dsl);
   return prettyFormatter(tokens);
 }
 
-export function format(ast: AST): string {
-  return formatWithSeparator(ast, ' ');
+export function format(dsl: DataDSL): string {
+  return formatWithSeparator(dsl, ' ');
 }
 
-format.newline = function(ast: AST): string {
-  return formatWithSeparator(ast, '\n');
+format.newline = function(dsl: DataDSL): string {
+  return formatWithSeparator(dsl, '\n');
 };
 
-format.nlprint = function(ast: AST): string {
-  const output = formatWithSeparator(ast, '\n');
+format.nlprint = function(dsl: DataDSL): string {
+  const output = formatWithSeparator(dsl, '\n');
   console.debug(output);
   return output;
 };
 
-format.pretty = function(ast: AST): string {
-  return prettyFormat(ast);
+format.pretty = function(dsl: DataDSL): string {
+  return prettyFormat(dsl);
 };
 
-format.pprint = function(ast: AST): string {
-  const output = prettyFormat(ast);
+format.pprint = function(dsl: DataDSL): string {
+  const output = prettyFormat(dsl);
   console.debug(output);
   return output;
 };

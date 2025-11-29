@@ -18,8 +18,8 @@ export type Expr = Atom | CompoundExpr;
 // Token types
 export type ExprToken = [string, string | ExprToken[]];
 
-// AST type
-export type AST = {
+// DataDSL type
+export type DataDSL = {
   select?: string[],
   from?: string[],
   where?: Expr,
