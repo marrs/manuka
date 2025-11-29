@@ -24,15 +24,15 @@ provide is important.
 
 ### Overview
 
-| Feature | PostgreSQL | SQLite |
-|---------|-----------|---------|
-| **Placeholders** | `$1, $2, $3` (numbered) | `?`, `:name`, `@name`, `$name`, `?NNN` |
-| **Protocol** | Binary wire protocol (TCP) | C API (local file/memory) |
-| **Type System** | Strict typing with type OIDs | Dynamic typing (type affinity) |
-| **Prepared Statements** | Per-connection, server-side cache | Per-database instance |
-| **NULL Handling** | Explicit in wire protocol | Same as other values |
-| **Arrays** | Native support with `{}` syntax | No native array type |
-| **JSON** | Native json/jsonb types (OID-based) | JSON1 extension (functions) |
+| Feature | PostgreSQL | SQLite | MySQL |
+|---------|-----------|---------|--------|
+| **Placeholders** | `$1, $2, $3` (numbered) | `?`, `:name`, `@name`, `$name`, `?NNN` | `?` (positional only) |
+| **Protocol** | Binary wire protocol (TCP) | C API (local file/memory) | Client-server (TCP/IP), Text or Binary |
+| **Type System** | Strict typing with type OIDs | Dynamic typing (type affinity) | Strict typing |
+| **Prepared Statements** | Per-connection, server-side cache | Per-database instance | Text: client-side, Binary: server-side |
+| **NULL Handling** | Explicit in wire protocol | Same as other values | Standard SQL NULL |
+| **Arrays** | Native support with `{}` syntax | No native array type | No native array type |
+| **JSON** | Native json/jsonb types (OID-based) | JSON1 extension (functions) | Native JSON type (5.7.8+) |
 
 ### Bindings
 
@@ -40,6 +40,7 @@ provide is important.
 |----------|-------------------|---------------|
 | **PostgreSQL** | `$1, $2, $3` only | Array (0-indexed in code, 1-indexed in SQL) |
 | **SQLite** | `?`, `?NNN`, `:name`, `@name`, `$name` | Array, object, or varargs |
+| **MySQL** | `?` only (positional) | Array (positional order) |
 
 > [!NOTE]
 > SQLite's `$name` is a **named parameter**, NOT the same as PostgreSQL's `$1`
