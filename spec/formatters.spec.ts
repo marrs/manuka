@@ -412,4 +412,55 @@ describe('separator formatter', () => {
       expect(result).to.eql('SELECT id, name\nFROM users\nWHERE active = true\nAND (shipping_country = US OR shipping_country = CA)\nORDER BY name');
     });
   });
+
+  context('DDL formatting', () => {
+    describe('prettyFormatter with DDL', () => {
+      it('right-aligns keywords with single space between keyword and operand', () => {
+        expect(prettyFormatter([
+          ['CREATE TABLE', 'users'],
+          ['COLUMN', 'id INTEGER'],
+          ['COLUMN', 'name TEXT']
+        ])).to.eql('CREATE TABLE users\n      COLUMN id INTEGER\n      COLUMN name TEXT');
+      });
+
+      it('handles DDL tokens without nested arrays (flat structure)', () => {
+        expect(prettyFormatter([
+          ['CREATE TABLE', 'user_roles'],
+          ['COLUMN', 'user_id INTEGER NOT NULL'],
+          ['COLUMN', 'role_id INTEGER NOT NULL'],
+          ['PRIMARY KEY', '(user_id, role_id)'],
+          ['FOREIGN KEY', '(user_id) REFERENCES users(id)'],
+          ['FOREIGN KEY', '(role_id) REFERENCES roles(id)']
+        ])).to.eql('CREATE TABLE user_roles\n      COLUMN user_id INTEGER NOT NULL\n      COLUMN role_id INTEGER NOT NULL\n PRIMARY KEY (user_id, role_id)\n FOREIGN KEY (user_id) REFERENCES users(id)\n FOREIGN KEY (role_id) REFERENCES roles(id)');
+      });
+
+      it('calculates right-alignment padding based on longest keyword', () => {
+        const result = prettyFormatter([
+          ['CREATE TABLE', 'products'],
+          ['COLUMN', 'id INTEGER'],
+          ['CHECK', '(price > 0)']
+        ]).split('\n');
+        expect(result[0]).to.have.leadingSpaces(0);
+        expect(result[1]).to.have.leadingSpaces(6); // 'CREATE TABLE' is 12 chars, 'COLUMN' is 6, so 6 spaces
+        expect(result[2]).to.have.leadingSpaces(7); // 'CHECK' is 5 chars, so 7 spaces
+      });
+    });
+
+    describe('separatorFormatter with DDL', () => {
+      it('joins DDL tokens with newlines without alignment or indentation', () => {
+        expect(separatorFormatter('\n', [
+          ['CREATE TABLE', 'users'],
+          ['COLUMN', 'id INTEGER'],
+          ['COLUMN', 'name TEXT']
+        ])).to.eql('CREATE TABLE users\nCOLUMN id INTEGER\nCOLUMN name TEXT');
+      });
+
+      it('joins DDL tokens with custom separator (space)', () => {
+        expect(separatorFormatter(' ', [
+          ['CREATE TABLE', 'users'],
+          ['COLUMN', 'id INTEGER']
+        ])).to.eql('CREATE TABLE users COLUMN id INTEGER');
+      });
+    });
+  });
 });
