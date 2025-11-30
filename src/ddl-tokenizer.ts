@@ -215,8 +215,8 @@ function isTableConstraint(item: ColumnDef | TableConstraint): item is TableCons
 function formatValue(value: string | number | null): string {
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
-  // String values are returned as-is (formatter will handle quoting)
-  return value;
+  // String values need to be quoted in SQL
+  return `'${value}'`;
 }
 
 function formatExpr(expr: Expr): string {
