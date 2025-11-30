@@ -3,7 +3,7 @@ import type {
   ComparisonExpr, LogicalExpr, LogicalOp
 } from './types.ts';
 
-export function tokenize(dsl: CommonDml) {
+export function tokenizeDml(dsl: CommonDml) {
   const tokens: ExprToken[] = [];
 
   if (dsl.select) {
@@ -28,6 +28,11 @@ export function tokenize(dsl: CommonDml) {
   }
 
   return tokens;
+}
+
+// Backwards compatibility
+export function tokenize(dsl: CommonDml) {
+  return tokenizeDml(dsl);
 }
 
 function tokenizeWhere(expr: Expr): ExprToken[] {
