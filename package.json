@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "test": "mocha",
+    "testbed": "tsx testbed/test-db.ts",
     "build": "tsup src/builder.ts --format esm --dts --outDir target",
     "watch": "tsup src/builder.ts --format esm --dts --outDir target --watch",
     "prepublishOnly": "yarn build"
