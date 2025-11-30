@@ -3,7 +3,19 @@ import type {
   ColumnType, Constraint, Expr, IfExists,
 } from './types.ts';
 
-import { ifExists, ifNotExists, sqlKeywords } from './vocabulary.ts';
+import {
+  byDefault,
+  ifExists,
+  ifNotExists,
+  not,
+  primaryKey,
+  foreignKey,
+  unique,
+  composite,
+  references,
+  check,
+} from './vocabulary.ts';
+import { upperCaseSqlKeyword } from './core.ts';
 
 export function tokenizeDdl(dsl: CommonDdl): ExprToken[] {
   const tokens: ExprToken[] = [];
@@ -40,7 +52,7 @@ function tokenizeCreateTable(dsl: CommonDdl): ExprToken[] {
   const doesNotExist = Array.isArray(dsl.createTable) && dsl.createTable[1] === ifNotExists;
 
   // Build CREATE TABLE clause with correct IF NOT EXISTS placement
-  let createClause = doesNotExist? `${sqlKeywords.ifNotExists} ${tableName}` : tableName;
+  let createClause = doesNotExist? `${upperCaseSqlKeyword(ifNotExists)} ${tableName}` : tableName;
 
   // Handle columns - combine into parenthesized list
   if (dsl.withColumns && dsl.withColumns.length > 0) {
@@ -49,7 +61,7 @@ function tokenizeCreateTable(dsl: CommonDdl): ExprToken[] {
 
     for (const column of dsl.withColumns) {
       if (isTableConstraint(column)) {
-        constraints.push(formatTableConstraint(column));
+        constraints.push(tokenizeTableConstraint(column));
       } else {
         columnDefs.push(tokenizeColumnDef(column));
       }
@@ -65,34 +77,34 @@ function tokenizeCreateTable(dsl: CommonDdl): ExprToken[] {
   return tokens;
 }
 
-function formatTableConstraint(constraint: TableConstraint): string {
+function tokenizeTableConstraint(constraint: TableConstraint): string {
   // TableConstraint is an array containing constraint definitions
   const [firstPart, ...rest] = constraint;
 
   if (Array.isArray(firstPart)) {
     const [keyword, ...args] = firstPart;
 
-    if (keyword === 'PRIMARY KEY') {
-      // Composite primary key: [['PRIMARY KEY', 'col1', 'col2']]
-      return `PRIMARY KEY (${args.join(', ')})`;
-    } else if (keyword === 'UNIQUE') {
-      // Composite unique: [['UNIQUE', ['COMPOSITE', 'col1', 'col2']]]
+    if (keyword === primaryKey) {
+      // Composite primary key: [[primaryKey, 'col1', 'col2']]
+      return `${upperCaseSqlKeyword(keyword)} (${args.join(', ')})`;
+    } else if (keyword === unique) {
+      // Composite unique: [[unique, [composite, 'col1', 'col2']]]
       const compositeArgs = args[0];
-      if (Array.isArray(compositeArgs) && compositeArgs[0] === 'COMPOSITE') {
+      if (Array.isArray(compositeArgs) && compositeArgs[0] === composite) {
         const [, ...columns] = compositeArgs;
-        return `UNIQUE (${columns.join(', ')})`;
+        return `${upperCaseSqlKeyword(keyword)} (${columns.join(', ')})`;
       }
-    } else if (keyword === 'FOREIGN KEY') {
-      // Foreign key: [['FOREIGN KEY', 'col'], ['REFERENCES', [table, column]]]
+    } else if (keyword === foreignKey) {
+      // Foreign key: [[foreignKey, 'col'], [references, ['table', 'column']]]
       const columnName = args[0];
-      const references = rest[0];
-      if (Array.isArray(references) && references[0] === 'REFERENCES') {
-        const [table, column] = references[1] as [string, string];
-        return `FOREIGN KEY (${columnName}) REFERENCES ${table}(${column})`;
+      const refs = rest[0];
+      if (Array.isArray(refs) && refs[0] === references) {
+        const [table, column] = refs[1] as [string, string];
+        return `${upperCaseSqlKeyword(foreignKey)} (${columnName}) ${upperCaseSqlKeyword(references)} ${table}(${column})`;
       }
-    } else if (keyword === 'CHECK') {
+    } else if (keyword === check) {
       // Table-level check: [['CHECK', expr]]
-      return `CHECK (${formatExpr(args[0] as Expr)})`;
+      return `${upperCaseSqlKeyword(check)} (${formatExpr(args[0] as Expr)})`;
     }
   }
 
@@ -105,7 +117,7 @@ function tokenizeColumnDef(columnDef: ColumnDef): string {
   let result = `${name} ${formatColumnType(type)}`;
 
   for (const constraint of constraints) {
-    result += ` ${formatConstraint(constraint)}`;
+    result += ` ${tokenizeConstraint(constraint)}`;
   }
 
   return result;
@@ -113,46 +125,46 @@ function tokenizeColumnDef(columnDef: ColumnDef): string {
 
 function formatColumnType(type: ColumnType): string {
   if (typeof type === 'string') {
-    return type;
+    return upperCaseSqlKeyword(type);
   }
 
   // Handle parameterized types: ['VARCHAR', 255] or ['DECIMAL', 10, 2]
   const [typeName, ...params] = type;
-  return `${typeName}(${params.join(', ')})`;
+  return `${upperCaseSqlKeyword(typeName)}(${params.join(', ')})`;
 }
 
-function formatConstraint(constraint: Constraint): string {
+function tokenizeConstraint(constraint: Constraint): string {
   const [keyword, value] = constraint;
 
-  if (keyword === 'NOT') {
+  if (keyword === not) {
     return 'NOT NULL';
   }
 
-  if (keyword === 'DEFAULT') {
-    return `DEFAULT ${formatValue(value)}`;
+  if (keyword === byDefault) {
+    return `${upperCaseSqlKeyword(byDefault)} ${formatValue(value)}`;
   }
 
-  if (keyword === 'PRIMARY KEY') {
-    return 'PRIMARY KEY';
+  if (keyword === primaryKey) {
+    return upperCaseSqlKeyword(keyword);
   }
 
-  if (keyword === 'UNIQUE') {
-    return 'UNIQUE';
+  if (keyword === unique) {
+    return upperCaseSqlKeyword(keyword);
   }
 
-  if (keyword === 'CHECK') {
+  if (keyword === check) {
     // For CHECK constraints, value is an Expr
-    return `CHECK (${formatExpr(value as Expr)})`;
+    return `${upperCaseSqlKeyword(keyword)} (${formatExpr(value as Expr)})`;
   }
 
-  if (keyword === 'REFERENCES') {
+  if (keyword === references) {
     // value is [table, column]
     const [table, column] = value as [string, string];
-    return `REFERENCES ${table}(${column})`;
+    return `${upperCaseSqlKeyword(keyword)} ${table}(${column})`;
   }
 
-  if (keyword === 'FOREIGN KEY') {
-    return `FOREIGN KEY (${value})`;
+  if (keyword === foreignKey) {
+    return `${upperCaseSqlKeyword(keyword)} (${value})`;
   }
 
   return '';
@@ -171,7 +183,7 @@ function tokenizeCreateIndex(dsl: CommonDdl): ExprToken[] {
   const doesNotExist = Array.isArray(name) && name[1] === ifNotExists;
 
   const keyword = unique ? 'CREATE UNIQUE INDEX' : 'CREATE INDEX';
-  const nameClause = doesNotExist ? `${sqlKeywords.ifNotExists} ${indexName}` : indexName;
+  const nameClause = doesNotExist ? `${upperCaseSqlKeyword(ifNotExists)} ${indexName}` : indexName;
 
   tokens.push([keyword, nameClause]);
 
@@ -191,7 +203,7 @@ function tokenizeDropTable(drop: string | [string, IfExists]): ExprToken[] {
   const tableName = typeof drop === 'string' ? drop : drop[0];
   const doesExist = Array.isArray(drop) && drop[1] === ifExists;
 
-  const clause = doesExist ? `${sqlKeywords.ifExists} ${tableName}` : tableName;
+  const clause = doesExist ? `${upperCaseSqlKeyword(ifExists)} ${tableName}` : tableName;
 
   return [['DROP TABLE', clause]];
 }
@@ -200,7 +212,7 @@ function tokenizeDropIndex(drop: string | [string, IfExists]): ExprToken[] {
   const indexName = typeof drop === 'string' ? drop : drop[0];
   const doesExist = Array.isArray(drop) && drop[1] === ifExists;
 
-  const clause = doesExist ? `${sqlKeywords.ifExists} ${indexName}` : indexName;
+  const clause = doesExist ? `${upperCaseSqlKeyword(ifExists)} ${indexName}` : indexName;
 
   return [['DROP INDEX', clause]];
 }

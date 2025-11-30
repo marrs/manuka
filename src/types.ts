@@ -34,41 +34,42 @@ export type IfExists = 'if exists';
 
 // Column data types
 export type ColumnType =
-  | 'INTEGER'
-  | 'TEXT'
-  | 'REAL'
-  | 'BLOB'
-  | 'NULL'
-  | ['VARCHAR', number]
-  | ['DECIMAL', number, number];
+  | 'integer'
+  | 'text'
+  | 'real'
+  | 'blob'
+  | 'null'
+  | ['varchar', number]
+  | ['decimal', number, number];
 
 // Constraint types
-export type NotNull = ['NOT', null];
-export type Default = ['DEFAULT', string | number | null];
-export type PrimaryKey = ['PRIMARY KEY'];
-export type Unique = ['UNIQUE'];
-export type Check = ['CHECK', Expr];
-export type References = ['REFERENCES', [string, string]];  // [table, column]
-export type ForeignKey = ['FOREIGN KEY', string];
+export type NotNull = ['not', null];
+export type Default = ['default', string | number | null];
+export type PrimaryKey = 'primary key';
+export type ForeignKey = 'foreign key';
+export type Unique = 'unique';
+export type Composite = 'composite';
+export type Check = 'check';
+export type References = 'references';
 
 export type Constraint =
   | NotNull
   | Default
-  | PrimaryKey
-  | Unique
-  | Check
-  | References
-  | ForeignKey;
+  | [PrimaryKey]
+  | [Unique]
+  | [Check, Expr]
+  | [References, [string, string]]
+  | [ForeignKey, string];
 
 // Column definition: [name, type, ...constraints]
 export type ColumnDef = [string, ColumnType, ...Constraint[]];
 
 // Table-level constraints
 export type TableConstraint =
-  | [['PRIMARY KEY', ...string[]]]                         // Composite PK
-  | [['UNIQUE', ['COMPOSITE', ...string[]]]]               // Composite unique
-  | [['FOREIGN KEY', string], ['REFERENCES', [string, string]]]
-  | [['CHECK', Expr]];
+  | [[PrimaryKey, ...string[]]]          // Composite PK
+  | [[Unique, [Composite, ...string[]]]] // Composite unique
+  | [[ForeignKey, string], [References, [string, string]]]
+  | [[Check, Expr]];
 
 // DDL property keys (used for runtime type detection)
 export const DDL_KEYS = [

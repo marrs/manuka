@@ -1,5 +1,10 @@
 import type { CommonDdl } from '../src/types.ts';
-import { ifNotExists, eq, gte, gt, lt, and } from '../src/vocabulary.ts';
+import {
+  ifNotExists, eq, gte, gt, and, not,
+  integer, text, real, primaryKey, foreignKey,
+  references, unique, byDefault, check,
+  composite,
+} from '../src/vocabulary.ts';
 
 // ============================================================================
 // E-Commerce Database Schema
@@ -11,13 +16,13 @@ import { ifNotExists, eq, gte, gt, lt, and } from '../src/vocabulary.ts';
 export const users: CommonDdl = {
   createTable: ['users', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['email', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['username', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['password_hash', 'TEXT', ['NOT', null]],
-    ['created_at', 'INTEGER', ['NOT', null]],
-    ['updated_at', 'INTEGER', ['NOT', null]],
-    ['is_active', 'INTEGER', ['DEFAULT', 1]]
+    ['id', integer, [primaryKey]],
+    ['email', text, [unique], [not, null]],
+    ['username', text, [unique], [not, null]],
+    ['password_hash', text, [not, null]],
+    ['created_at', integer, [not, null]],
+    ['updated_at', integer, [not, null]],
+    ['is_active', integer, [byDefault, 1]]
   ]
 };
 
@@ -25,13 +30,13 @@ export const users: CommonDdl = {
 export const userProfiles: CommonDdl = {
   createTable: ['user_profiles', ifNotExists],
   withColumns: [
-    ['user_id', 'INTEGER', ['PRIMARY KEY']],
-    ['first_name', 'TEXT'],
-    ['last_name', 'TEXT'],
-    ['bio', 'TEXT'],
-    ['avatar_url', 'TEXT'],
-    ['birth_date', 'TEXT'],
-    [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
+    ['user_id', integer, [primaryKey]],
+    ['first_name', text],
+    ['last_name', text],
+    ['bio', text],
+    ['avatar_url', text],
+    ['birth_date', text],
+    [[foreignKey, 'user_id'], [references, ['users', 'id']]]
   ]
 };
 
@@ -39,12 +44,12 @@ export const userProfiles: CommonDdl = {
 export const categories: CommonDdl = {
   createTable: ['categories', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['parent_id', 'INTEGER'],
-    ['name', 'TEXT', ['NOT', null]],
-    ['slug', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['description', 'TEXT'],
-    [['FOREIGN KEY', 'parent_id'], ['REFERENCES', ['categories', 'id']]]
+    ['id', integer, [primaryKey]],
+    ['parent_id', integer],
+    ['name', text, [not, null]],
+    ['slug', text, [unique], [not, null]],
+    ['description', text],
+    [[foreignKey, 'parent_id'], [references, ['categories', 'id']]]
   ]
 };
 
@@ -52,18 +57,18 @@ export const categories: CommonDdl = {
 export const products: CommonDdl = {
   createTable: ['products', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['category_id', 'INTEGER', ['NOT', null]],
-    ['sku', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['name', 'TEXT', ['NOT', null]],
-    ['description', 'TEXT'],
-    ['price', 'REAL', ['NOT', null], ['CHECK', [gte, 'price', 0]]],
-    ['stock_quantity', 'INTEGER', ['DEFAULT', 0], ['CHECK', [gte, 'stock_quantity', 0]]],
-    ['weight_kg', 'REAL'],
-    ['is_available', 'INTEGER', ['DEFAULT', 1]],
-    ['created_at', 'INTEGER', ['NOT', null]],
+    ['id', integer, [primaryKey]],
+    ['category_id', integer, [not, null]],
+    ['sku', text, [unique], [not, null]],
+    ['name', text, [not, null]],
+    ['description', text],
+    ['price', real, [not, null], [check, [gte, 'price', 0]]],
+    ['stock_quantity', integer, [byDefault, 0], [check, [gte, 'stock_quantity', 0]]],
+    ['weight_kg', real],
+    ['is_available', integer, [byDefault, 1]],
+    ['created_at', integer, [not, null]],
     ['image_data', 'BLOB'],
-    [['FOREIGN KEY', 'category_id'], ['REFERENCES', ['categories', 'id']]]
+    [[foreignKey, 'category_id'], [references, ['categories', 'id']]]
   ]
 };
 
@@ -71,9 +76,9 @@ export const products: CommonDdl = {
 export const tags: CommonDdl = {
   createTable: ['tags', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['name', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['color', 'TEXT', ['DEFAULT', '#808080']]
+    ['id', integer, [primaryKey]],
+    ['name', text, [unique], [not, null]],
+    ['color', text, [byDefault, '#808080']]
   ]
 };
 
@@ -81,11 +86,11 @@ export const tags: CommonDdl = {
 export const productTags: CommonDdl = {
   createTable: ['product_tags', ifNotExists],
   withColumns: [
-    ['product_id', 'INTEGER', ['NOT', null]],
-    ['tag_id', 'INTEGER', ['NOT', null]],
-    [['PRIMARY KEY', 'product_id', 'tag_id']],
-    [['FOREIGN KEY', 'product_id'], ['REFERENCES', ['products', 'id']]],
-    [['FOREIGN KEY', 'tag_id'], ['REFERENCES', ['tags', 'id']]]
+    ['product_id', integer, [not, null]],
+    ['tag_id', integer, [not, null]],
+    [[primaryKey, 'product_id', 'tag_id']],
+    [[foreignKey, 'product_id'], [references, ['products', 'id']]],
+    [[foreignKey, 'tag_id'], [references, ['tags', 'id']]]
   ]
 };
 
@@ -93,17 +98,17 @@ export const productTags: CommonDdl = {
 export const orders: CommonDdl = {
   createTable: ['orders', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['user_id', 'INTEGER', ['NOT', null]],
-    ['order_number', 'TEXT', ['UNIQUE'], ['NOT', null]],
-    ['status', 'TEXT'],
-    ['subtotal', 'REAL', ['NOT', null], ['CHECK', [gte, 'subtotal', 0]]],
-    ['tax', 'REAL', ['NOT', null], ['CHECK', [gte, 'tax', 0]]],
-    ['shipping', 'REAL', ['NOT', null], ['CHECK', [gte, 'shipping', 0]]],
-    ['total', 'REAL', ['NOT', null], ['CHECK', [gte, 'total', 0]]],
-    ['created_at', 'INTEGER', ['NOT', null]],
-    ['shipped_at', 'INTEGER'],
-    [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
+    ['id', integer, [primaryKey]],
+    ['user_id', integer, [not, null]],
+    ['order_number', text, [unique], [not, null]],
+    ['status', text],
+    ['subtotal', real, [not, null], [check, [gte, 'subtotal', 0]]],
+    ['tax', real, [not, null], [check, [gte, 'tax', 0]]],
+    ['shipping', real, [not, null], [check, [gte, 'shipping', 0]]],
+    ['total', real, [not, null], [check, [gte, 'total', 0]]],
+    ['created_at', integer, [not, null]],
+    ['shipped_at', integer],
+    [[foreignKey, 'user_id'], [references, ['users', 'id']]]
   ]
 };
 
@@ -111,15 +116,15 @@ export const orders: CommonDdl = {
 export const orderItems: CommonDdl = {
   createTable: ['order_items', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['order_id', 'INTEGER', ['NOT', null]],
-    ['product_id', 'INTEGER', ['NOT', null]],
-    ['quantity', 'INTEGER', ['NOT', null], ['CHECK', [gt, 'quantity', 0]]],
-    ['unit_price', 'REAL', ['NOT', null], ['CHECK', [gte, 'unit_price', 0]]],
-    ['subtotal', 'REAL', ['NOT', null], ['CHECK', [gte, 'subtotal', 0]]],
-    [['UNIQUE', ['COMPOSITE', 'order_id', 'product_id']]],
-    [['FOREIGN KEY', 'order_id'], ['REFERENCES', ['orders', 'id']]],
-    [['FOREIGN KEY', 'product_id'], ['REFERENCES', ['products', 'id']]]
+    ['id', integer, [primaryKey]],
+    ['order_id', integer, [not, null]],
+    ['product_id', integer, [not, null]],
+    ['quantity', integer, [not, null], [check, [gt, 'quantity', 0]]],
+    ['unit_price', real, [not, null], [check, [gte, 'unit_price', 0]]],
+    ['subtotal', real, [not, null], [check, [gte, 'subtotal', 0]]],
+    [[unique, [composite, 'order_id', 'product_id']]],
+    [[foreignKey, 'order_id'], [references, ['orders', 'id']]],
+    [[foreignKey, 'product_id'], [references, ['products', 'id']]]
   ]
 };
 
@@ -127,16 +132,16 @@ export const orderItems: CommonDdl = {
 export const reviews: CommonDdl = {
   createTable: ['reviews', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['product_id', 'INTEGER', ['NOT', null]],
-    ['user_id', 'INTEGER', ['NOT', null]],
-    ['rating', 'INTEGER', ['NOT', null], ['CHECK', [and, [gte, 'rating', 1], [gte, 5, 'rating']]]],
-    ['title', 'TEXT'],
-    ['comment', 'TEXT'],
-    ['created_at', 'INTEGER', ['NOT', null]],
-    [['UNIQUE', ['COMPOSITE', 'product_id', 'user_id']]],
-    [['FOREIGN KEY', 'product_id'], ['REFERENCES', ['products', 'id']]],
-    [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
+    ['id', integer, [primaryKey]],
+    ['product_id', integer, [not, null]],
+    ['user_id', integer, [not, null]],
+    ['rating', integer, [not, null], [check, [and, [gte, 'rating', 1], [gte, 5, 'rating']]]],
+    ['title', text],
+    ['comment', text],
+    ['created_at', integer, [not, null]],
+    [[unique, [composite, 'product_id', 'user_id']]],
+    [[foreignKey, 'product_id'], [references, ['products', 'id']]],
+    [[foreignKey, 'user_id'], [references, ['users', 'id']]]
   ]
 };
 
@@ -144,16 +149,16 @@ export const reviews: CommonDdl = {
 export const addresses: CommonDdl = {
   createTable: ['addresses', ifNotExists],
   withColumns: [
-    ['id', 'INTEGER', ['PRIMARY KEY']],
-    ['user_id', 'INTEGER', ['NOT', null]],
-    ['type', 'TEXT'],
-    ['street', 'TEXT', ['NOT', null]],
-    ['city', 'TEXT', ['NOT', null]],
-    ['state', 'TEXT'],
-    ['postal_code', 'TEXT', ['NOT', null]],
-    ['country', 'TEXT', ['NOT', null], ['DEFAULT', 'US']],
-    ['is_default', 'INTEGER', ['DEFAULT', 0]],
-    [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
+    ['id', integer, [primaryKey]],
+    ['user_id', integer, [not, null]],
+    ['type', text],
+    ['street', text, [not, null]],
+    ['city', text, [not, null]],
+    ['state', text],
+    ['postal_code', text, [not, null]],
+    ['country', text, [not, null], [byDefault, 'US']],
+    ['is_default', integer, [byDefault, 0]],
+    [[foreignKey, 'user_id'], [references, ['users', 'id']]]
   ]
 };
 

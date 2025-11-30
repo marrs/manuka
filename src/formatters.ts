@@ -1,4 +1,5 @@
 import type { ExprToken } from './types.ts';
+import { upperCaseSqlKeyword } from './core.ts';
 
 function formatSimpleOperand(operand: string | ExprToken[]): string {
   if (typeof operand === 'string') {
@@ -58,9 +59,9 @@ function formatSingleToken(token: ExprToken, baseIndent: number): string {
   const [keyword, operand] = token;
 
   if (typeof operand === 'string') {
-    return `${keyword} ${operand}`;
+    return `${upperCaseSqlKeyword(keyword)} ${operand}`;
   } else {
-    return formatTokenWithNested(keyword, operand, baseIndent, keyword.length);
+    return formatTokenWithNested('', keyword, operand, baseIndent, keyword.length);
   }
 }
 
@@ -71,14 +72,14 @@ function formatTokenArray(tokens: ExprToken[], baseIndent: number): string {
   const lines = tokens.map(token => {
     const [keyword, operand] = token;
     const padding = ' '.repeat(maxKeywordLength - keyword.length);
-    const paddedKeyword = padding + keyword;
+    const paddedKeyword = padding + upperCaseSqlKeyword(keyword);
 
     if (typeof operand === 'string') {
       return `${paddedKeyword} ${operand}`;
     } else {
       // Pass the indentation level where this keyword starts (baseIndent + padding)
       const keywordIndent = baseIndent + padding.length;
-      return formatTokenWithNested(paddedKeyword, operand, keywordIndent, keyword.length);
+      return formatTokenWithNested(padding, keyword, operand, keywordIndent, keyword.length);
     }
   });
 
@@ -86,7 +87,8 @@ function formatTokenArray(tokens: ExprToken[], baseIndent: number): string {
 }
 
 function formatTokenWithNested(
-  paddedKeyword: string,
+  padding: string,
+  keyword: string,
   nestedTokens: ExprToken[],
   baseIndent: number,
   keywordLength: number
@@ -97,11 +99,11 @@ function formatTokenWithNested(
   if (nestedTokens.length <= 2) {
     // Single-line format
     const inner = formatSingleLine(nestedTokens);
-    return `${paddedKeyword} ${inner}`;
+    return `${padding}${upperCaseSqlKeyword(keyword)} ${inner}`;
   } else {
     // Multi-line format
     const inner = formatMultiLine(nestedTokens, predicateColumn, baseIndent);
-    return `${paddedKeyword} ${inner}`;
+    return `${padding}${upperCaseSqlKeyword(keyword)} ${inner}`;
   }
 }
 
@@ -111,7 +113,7 @@ function formatSingleLine(nestedTokens: ExprToken[]): string {
     if (index === 0) {
       return formattedPred; // Empty operator, just predicate
     } else {
-      return `${op} ${formattedPred}`;
+      return `${upperCaseSqlKeyword(op)} ${formattedPred}`;
     }
   });
 
@@ -139,7 +141,7 @@ function formatMultiLine(
     const opStartColumn = operatorEndColumn - op.length + 1;
     const padding = ' '.repeat(opStartColumn);
 
-    result += `\n${padding}${op} ${formattedPred}`;
+    result += `\n${padding}${upperCaseSqlKeyword(op)} ${formattedPred}`;
   }
 
   // Closing paren aligns with base indentation

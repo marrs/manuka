@@ -1,9 +1,24 @@
 import { expect } from 'chai';
 import { tokenizeDdl } from '../src/ddl-tokenizer.ts';
+import {
+  check,
+  composite,
+  decimal,
+  byDefault,
+  foreignKey,
+  ifNotExists,
+  integer,
+  not,
+  primaryKey,
+  references,
+  varchar,
+  text,
+  unique,
+} from '../src/vocabulary.ts';
 
 describe('ddl-tokenizer', () => {
-  context('CREATE TABLE', () => {
-    it('handles simple CREATE TABLE', () => {
+  context('create table', () => {
+    it('handles simple create table', () => {
       expect(tokenizeDdl({
         createTable: 'users'
       })).to.eql([
@@ -11,32 +26,32 @@ describe('ddl-tokenizer', () => {
       ]);
     });
 
-    it('handles CREATE TABLE IF NOT EXISTS', () => {
+    it('handles create table IF NOT EXISTS', () => {
       expect(tokenizeDdl({
-        createTable: ['users', 'if not exists']
+        createTable: ['users', ifNotExists]
       })).to.eql([
         ['CREATE TABLE', 'IF NOT EXISTS users']
       ]);
     });
 
-    it('handles CREATE TABLE with single column', () => {
+    it('handles create table with single column', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['id', 'INTEGER']
+          ['id', integer]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (id INTEGER)']
       ]);
     });
 
-    it('handles CREATE TABLE with multiple columns', () => {
+    it('handles create table with multiple columns', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['id', 'INTEGER'],
-          ['name', 'TEXT'],
-          ['email', 'TEXT']
+          ['id', integer],
+          ['name', text],
+          ['email', text]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (id INTEGER, name TEXT, email TEXT)']
@@ -47,7 +62,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['username', ['VARCHAR', 255]]
+          ['username', [varchar, 255]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (username VARCHAR(255))']
@@ -58,7 +73,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'products',
         withColumns: [
-          ['price', ['DECIMAL', 10, 2]]
+          ['price', [decimal, 10, 2]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'products (price DECIMAL(10, 2))']
@@ -71,7 +86,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['id', 'INTEGER', ['NOT', null]]
+          ['id', integer, [not, null]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (id INTEGER NOT NULL)']
@@ -82,7 +97,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['id', 'INTEGER', ['PRIMARY KEY']]
+          ['id', integer, [primaryKey]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (id INTEGER PRIMARY KEY)']
@@ -93,7 +108,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['email', 'TEXT', ['UNIQUE']]
+          ['email', text, [unique]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (email TEXT UNIQUE)']
@@ -104,7 +119,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['status', 'TEXT', ['DEFAULT', 'active']]
+          ['status', text, [byDefault, 'active']]
         ]
       })).to.eql([
         ['CREATE TABLE', "users (status TEXT DEFAULT 'active')"]
@@ -115,7 +130,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['balance', 'INTEGER', ['DEFAULT', 0]]
+          ['balance', integer, [byDefault, 0]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (balance INTEGER DEFAULT 0)']
@@ -126,7 +141,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['deleted_at', 'TEXT', ['DEFAULT', null]]
+          ['deleted_at', text, [byDefault, null]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (deleted_at TEXT DEFAULT NULL)']
@@ -137,7 +152,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['age', 'INTEGER', ['CHECK', ['>=', 'age', 18]]]
+          ['age', integer, [check, ['>=', 'age', 18]]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (age INTEGER CHECK (age >= 18))']
@@ -148,7 +163,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'orders',
         withColumns: [
-          ['user_id', 'INTEGER', ['REFERENCES', ['users', 'id']]]
+          ['user_id', integer, [references, ['users', 'id']]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'orders (user_id INTEGER REFERENCES users(id))']
@@ -159,7 +174,7 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['email', 'TEXT', ['NOT', null], ['UNIQUE']]
+          ['email', text, [not, null], [unique]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (email TEXT NOT NULL UNIQUE)']
@@ -170,9 +185,9 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['id', 'INTEGER', ['PRIMARY KEY'], ['NOT', null]],
-          ['email', 'TEXT', ['NOT', null], ['UNIQUE']],
-          ['age', 'INTEGER', ['DEFAULT', 0], ['CHECK', ['>=', 'age', 0]]]
+          ['id', integer, [primaryKey], [not, null]],
+          ['email', text, [not, null], [unique]],
+          ['age', integer, [byDefault, 0], [check, ['>=', 'age', 0]]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (id INTEGER PRIMARY KEY NOT NULL, email TEXT NOT NULL UNIQUE, age INTEGER DEFAULT 0 CHECK (age >= 0))']
@@ -185,9 +200,9 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'user_roles',
         withColumns: [
-          ['user_id', 'INTEGER'],
-          ['role_id', 'INTEGER'],
-          [['PRIMARY KEY', 'user_id', 'role_id']]
+          ['user_id', integer],
+          ['role_id', integer],
+          [[primaryKey, 'user_id', 'role_id']]
         ]
       })).to.eql([
         ['CREATE TABLE', 'user_roles (user_id INTEGER, role_id INTEGER, PRIMARY KEY (user_id, role_id))']
@@ -198,9 +213,9 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'users',
         withColumns: [
-          ['first_name', 'TEXT'],
-          ['last_name', 'TEXT'],
-          [['UNIQUE', ['COMPOSITE', 'first_name', 'last_name']]]
+          ['first_name', text],
+          ['last_name', text],
+          [[unique, [composite, 'first_name', 'last_name']]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'users (first_name TEXT, last_name TEXT, UNIQUE (first_name, last_name))']
@@ -211,9 +226,9 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'orders',
         withColumns: [
-          ['id', 'INTEGER'],
-          ['user_id', 'INTEGER'],
-          [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
+          ['id', integer],
+          ['user_id', integer],
+          [[foreignKey, 'user_id'], [references, ['users', 'id']]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'orders (id INTEGER, user_id INTEGER, FOREIGN KEY (user_id) REFERENCES users(id))']
@@ -224,9 +239,9 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'products',
         withColumns: [
-          ['price', 'INTEGER'],
-          ['discount_price', 'INTEGER'],
-          [['CHECK', ['<', 'discount_price', 'price']]]
+          ['price', integer],
+          ['discount_price', integer],
+          [[check, ['<', 'discount_price', 'price']]]
         ]
       })).to.eql([
         ['CREATE TABLE', "products (price INTEGER, discount_price INTEGER, CHECK (discount_price < 'price'))"]
@@ -338,12 +353,12 @@ describe('ddl-tokenizer', () => {
   context('Complex schemas', () => {
     it('handles complete table with all features', () => {
       expect(tokenizeDdl({
-        createTable: ['users', 'if not exists'],
+        createTable: ['users', ifNotExists],
         withColumns: [
-          ['id', 'INTEGER', ['PRIMARY KEY'], ['NOT', null]],
-          ['email', ['VARCHAR', 255], ['NOT', null], ['UNIQUE']],
-          ['age', 'INTEGER', ['DEFAULT', 18], ['CHECK', ['>=', 'age', 18]]],
-          ['created_at', 'TEXT', ['DEFAULT', null]]
+          ['id', integer, [primaryKey], [not, null]],
+          ['email', [varchar, 255], [not, null], [unique]],
+          ['age', integer, [byDefault, 18], [check, ['>=', 'age', 18]]],
+          ['created_at', text, [byDefault, null]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'IF NOT EXISTS users (id INTEGER PRIMARY KEY NOT NULL, email VARCHAR(255) NOT NULL UNIQUE, age INTEGER DEFAULT 18 CHECK (age >= 18), created_at TEXT DEFAULT NULL)']
@@ -354,11 +369,11 @@ describe('ddl-tokenizer', () => {
       expect(tokenizeDdl({
         createTable: 'user_roles',
         withColumns: [
-          ['user_id', 'INTEGER', ['NOT', null]],
-          ['role_id', 'INTEGER', ['NOT', null]],
-          [['PRIMARY KEY', 'user_id', 'role_id']],
-          [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]],
-          [['FOREIGN KEY', 'role_id'], ['REFERENCES', ['roles', 'id']]]
+          ['user_id', integer, [not, null]],
+          ['role_id', integer, [not, null]],
+          [[primaryKey, 'user_id', 'role_id']],
+          [[foreignKey, 'user_id'], [references, ['users', 'id']]],
+          [[foreignKey, 'role_id'], [references, ['roles', 'id']]]
         ]
       })).to.eql([
         ['CREATE TABLE', 'user_roles (user_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (user_id, role_id), FOREIGN KEY (user_id) REFERENCES users(id), FOREIGN KEY (role_id) REFERENCES roles(id))']

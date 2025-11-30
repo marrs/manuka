@@ -1,7 +1,10 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { format, partial, validate } from '../src/index.ts';
-import { and, or, eq, ne, lt, gt, gte } from '../src/vocabulary.ts';
+import {
+  integer,
+  and, or, eq, ne, lt, gt, gte
+} from '../src/vocabulary.ts';
 
 describe('format', () => {
   context('select', () => {
@@ -155,7 +158,7 @@ describe('format with unified DML/DDL API', () => {
   it('handles DDL statements', () => {
     expect(format({
       createTable: 'users',
-      withColumns: [['id', 'INTEGER']]
+      withColumns: [['id', integer]]
     })).to.eql("CREATE TABLE users (id INTEGER)");
   });
 });
