@@ -1,7 +1,9 @@
 import type {
   CommonDdl, ExprToken, ColumnDef, TableConstraint,
-  ColumnType, Constraint, Expr
+  ColumnType, Constraint, Expr, IfExists,
 } from './types.ts';
+
+import { ifExists, ifNotExists, sqlKeywords } from './vocabulary.ts';
 
 export function tokenizeDdl(dsl: CommonDdl): ExprToken[] {
   const tokens: ExprToken[] = [];
@@ -35,35 +37,66 @@ function tokenizeCreateTable(dsl: CommonDdl): ExprToken[] {
     ? dsl.createTable
     : dsl.createTable[0];
 
-  const ifNotExists = Array.isArray(dsl.createTable) && dsl.createTable[1] === 'IF NOT EXISTS';
+  const doesNotExist = Array.isArray(dsl.createTable) && dsl.createTable[1] === ifNotExists;
 
-  const createClause = ifNotExists
-    ? `${tableName} IF NOT EXISTS`
-    : tableName;
+  // Build CREATE TABLE clause with correct IF NOT EXISTS placement
+  let createClause = doesNotExist? `${sqlKeywords.ifNotExists} ${tableName}` : tableName;
+
+  // Handle columns - combine into parenthesized list
+  if (dsl.withColumns && dsl.withColumns.length > 0) {
+    const columnDefs: string[] = [];
+    const constraints: string[] = [];
+
+    for (const column of dsl.withColumns) {
+      if (isTableConstraint(column)) {
+        constraints.push(formatTableConstraint(column));
+      } else {
+        columnDefs.push(tokenizeColumnDef(column));
+      }
+    }
+
+    // Combine columns and constraints
+    const allDefs = [...columnDefs, ...constraints];
+    createClause += ` (${allDefs.join(', ')})`;
+  }
 
   tokens.push(['CREATE TABLE', createClause]);
-
-  // Handle columns
-  if (dsl.withColumns && dsl.withColumns.length > 0) {
-    const columnTokens = tokenizeColumns(dsl.withColumns);
-    tokens.push(...columnTokens);
-  }
 
   return tokens;
 }
 
-function tokenizeColumns(columns: (ColumnDef | TableConstraint)[]): ExprToken[] {
-  const tokens: ExprToken[] = [];
+function formatTableConstraint(constraint: TableConstraint): string {
+  // TableConstraint is an array containing constraint definitions
+  const [firstPart, ...rest] = constraint;
 
-  for (const column of columns) {
-    if (isTableConstraint(column)) {
-      tokens.push(...tokenizeTableConstraint(column));
-    } else {
-      tokens.push(['COLUMN', tokenizeColumnDef(column)]);
+  if (Array.isArray(firstPart)) {
+    const [keyword, ...args] = firstPart;
+
+    if (keyword === 'PRIMARY KEY') {
+      // Composite primary key: [['PRIMARY KEY', 'col1', 'col2']]
+      return `PRIMARY KEY (${args.join(', ')})`;
+    } else if (keyword === 'UNIQUE') {
+      // Composite unique: [['UNIQUE', ['COMPOSITE', 'col1', 'col2']]]
+      const compositeArgs = args[0];
+      if (Array.isArray(compositeArgs) && compositeArgs[0] === 'COMPOSITE') {
+        const [, ...columns] = compositeArgs;
+        return `UNIQUE (${columns.join(', ')})`;
+      }
+    } else if (keyword === 'FOREIGN KEY') {
+      // Foreign key: [['FOREIGN KEY', 'col'], ['REFERENCES', [table, column]]]
+      const columnName = args[0];
+      const references = rest[0];
+      if (Array.isArray(references) && references[0] === 'REFERENCES') {
+        const [table, column] = references[1] as [string, string];
+        return `FOREIGN KEY (${columnName}) REFERENCES ${table}(${column})`;
+      }
+    } else if (keyword === 'CHECK') {
+      // Table-level check: [['CHECK', expr]]
+      return `CHECK (${formatExpr(args[0] as Expr)})`;
     }
   }
 
-  return tokens;
+  return '';
 }
 
 function tokenizeColumnDef(columnDef: ColumnDef): string {
@@ -125,41 +158,6 @@ function formatConstraint(constraint: Constraint): string {
   return '';
 }
 
-function tokenizeTableConstraint(constraint: TableConstraint): ExprToken[] {
-  const tokens: ExprToken[] = [];
-
-  // TableConstraint is an array containing constraint definitions
-  const [firstPart, ...rest] = constraint;
-
-  if (Array.isArray(firstPart)) {
-    const [keyword, ...args] = firstPart;
-
-    if (keyword === 'PRIMARY KEY') {
-      // Composite primary key: [['PRIMARY KEY', 'col1', 'col2']]
-      tokens.push(['PRIMARY KEY', `(${args.join(', ')})`]);
-    } else if (keyword === 'UNIQUE') {
-      // Composite unique: [['UNIQUE', ['COMPOSITE', 'col1', 'col2']]]
-      const compositeArgs = args[0];
-      if (Array.isArray(compositeArgs) && compositeArgs[0] === 'COMPOSITE') {
-        const [, ...columns] = compositeArgs;
-        tokens.push(['UNIQUE', `(${columns.join(', ')})`]);
-      }
-    } else if (keyword === 'FOREIGN KEY') {
-      // Foreign key: [['FOREIGN KEY', 'col'], ['REFERENCES', [table, column]]]
-      const columnName = args[0];
-      const references = rest[0];
-      if (Array.isArray(references) && references[0] === 'REFERENCES') {
-        const [table, column] = references[1] as [string, string];
-        tokens.push(['FOREIGN KEY', `(${columnName}) REFERENCES ${table}(${column})`]);
-      }
-    } else if (keyword === 'CHECK') {
-      // Table-level check: [['CHECK', expr]]
-      tokens.push(['CHECK', `(${formatExpr(args[0] as Expr)})`]);
-    }
-  }
-
-  return tokens;
-}
 
 function tokenizeCreateIndex(dsl: CommonDdl): ExprToken[] {
   const tokens: ExprToken[] = [];
@@ -170,10 +168,10 @@ function tokenizeCreateIndex(dsl: CommonDdl): ExprToken[] {
 
   // Handle index name with optional IF NOT EXISTS
   const indexName = typeof name === 'string' ? name : name[0];
-  const ifNotExists = Array.isArray(name) && name[1] === 'IF NOT EXISTS';
+  const doesNotExist = Array.isArray(name) && name[1] === ifNotExists;
 
   const keyword = unique ? 'CREATE UNIQUE INDEX' : 'CREATE INDEX';
-  const nameClause = ifNotExists ? `${indexName} IF NOT EXISTS` : indexName;
+  const nameClause = doesNotExist ? `${sqlKeywords.ifNotExists} ${indexName}` : indexName;
 
   tokens.push([keyword, nameClause]);
 
@@ -189,20 +187,20 @@ function tokenizeCreateIndex(dsl: CommonDdl): ExprToken[] {
   return tokens;
 }
 
-function tokenizeDropTable(drop: string | [string, 'IF EXISTS']): ExprToken[] {
+function tokenizeDropTable(drop: string | [string, IfExists]): ExprToken[] {
   const tableName = typeof drop === 'string' ? drop : drop[0];
-  const ifExists = Array.isArray(drop) && drop[1] === 'IF EXISTS';
+  const doesExist = Array.isArray(drop) && drop[1] === ifExists;
 
-  const clause = ifExists ? `${tableName} IF EXISTS` : tableName;
+  const clause = doesExist ? `${sqlKeywords.ifExists} ${tableName}` : tableName;
 
   return [['DROP TABLE', clause]];
 }
 
-function tokenizeDropIndex(drop: string | [string, 'IF EXISTS']): ExprToken[] {
+function tokenizeDropIndex(drop: string | [string, IfExists]): ExprToken[] {
   const indexName = typeof drop === 'string' ? drop : drop[0];
-  const ifExists = Array.isArray(drop) && drop[1] === 'IF EXISTS';
+  const doesExist = Array.isArray(drop) && drop[1] === ifExists;
 
-  const clause = ifExists ? `${indexName} IF EXISTS` : indexName;
+  const clause = doesExist ? `${sqlKeywords.ifExists} ${indexName}` : indexName;
 
   return [['DROP INDEX', clause]];
 }

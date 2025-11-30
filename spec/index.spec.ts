@@ -156,6 +156,6 @@ describe('format with unified DML/DDL API', () => {
     expect(format({
       createTable: 'users',
       withColumns: [['id', 'INTEGER']]
-    })).to.eql("CREATE TABLE users COLUMN id INTEGER");
+    })).to.eql("CREATE TABLE users (id INTEGER)");
   });
 });

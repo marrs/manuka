@@ -29,6 +29,9 @@ export type CommonDml = {
 // DDL Types (Data Definition Language)
 // ============================================================================
 
+export type IfNotExists = 'if not exists';
+export type IfExists = 'if exists';
+
 // Column data types
 export type ColumnType =
   | 'INTEGER'
@@ -79,20 +82,20 @@ export const DDL_KEYS = [
 // Common SQL DDL (portable across all databases)
 export type CommonDdl = {
   // CREATE TABLE with column definitions
-  createTable?: string | [string, 'IF NOT EXISTS'];
+  createTable?: string | [string, IfNotExists];
   withColumns?: (ColumnDef | TableConstraint)[];
 
   // CREATE INDEX
   createIndex?: {
-    name: string | [string, 'IF NOT EXISTS'];
+    name: string | [string, IfNotExists];
     on: [string, ...string[]];  // [table, col1, col2, ...]
     unique?: boolean;
     where?: Expr;  // Partial index
   };
 
   // DROP operations
-  dropTable?: string | [string, 'IF EXISTS'];
-  dropIndex?: string | [string, 'IF EXISTS'];
+  dropTable?: string | [string, IfExists];
+  dropIndex?: string | [string, IfExists];
 };
 
 // Compile-time validation that DDL_KEYS matches CommonDdl keys

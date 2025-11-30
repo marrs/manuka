@@ -13,9 +13,9 @@ describe('ddl-tokenizer', () => {
 
     it('handles CREATE TABLE IF NOT EXISTS', () => {
       expect(tokenizeDdl({
-        createTable: ['users', 'IF NOT EXISTS']
+        createTable: ['users', 'if not exists']
       })).to.eql([
-        ['CREATE TABLE', 'users IF NOT EXISTS']
+        ['CREATE TABLE', 'IF NOT EXISTS users']
       ]);
     });
 
@@ -26,8 +26,7 @@ describe('ddl-tokenizer', () => {
           ['id', 'INTEGER']
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'id INTEGER']
+        ['CREATE TABLE', 'users (id INTEGER)']
       ]);
     });
 
@@ -40,10 +39,7 @@ describe('ddl-tokenizer', () => {
           ['email', 'TEXT']
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'id INTEGER'],
-        ['COLUMN', 'name TEXT'],
-        ['COLUMN', 'email TEXT']
+        ['CREATE TABLE', 'users (id INTEGER, name TEXT, email TEXT)']
       ]);
     });
 
@@ -54,8 +50,7 @@ describe('ddl-tokenizer', () => {
           ['username', ['VARCHAR', 255]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'username VARCHAR(255)']
+        ['CREATE TABLE', 'users (username VARCHAR(255))']
       ]);
     });
 
@@ -66,8 +61,7 @@ describe('ddl-tokenizer', () => {
           ['price', ['DECIMAL', 10, 2]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'products'],
-        ['COLUMN', 'price DECIMAL(10, 2)']
+        ['CREATE TABLE', 'products (price DECIMAL(10, 2))']
       ]);
     });
   });
@@ -80,8 +74,7 @@ describe('ddl-tokenizer', () => {
           ['id', 'INTEGER', ['NOT', null]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'id INTEGER NOT NULL']
+        ['CREATE TABLE', 'users (id INTEGER NOT NULL)']
       ]);
     });
 
@@ -92,8 +85,7 @@ describe('ddl-tokenizer', () => {
           ['id', 'INTEGER', ['PRIMARY KEY']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'id INTEGER PRIMARY KEY']
+        ['CREATE TABLE', 'users (id INTEGER PRIMARY KEY)']
       ]);
     });
 
@@ -104,8 +96,7 @@ describe('ddl-tokenizer', () => {
           ['email', 'TEXT', ['UNIQUE']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'email TEXT UNIQUE']
+        ['CREATE TABLE', 'users (email TEXT UNIQUE)']
       ]);
     });
 
@@ -116,8 +107,7 @@ describe('ddl-tokenizer', () => {
           ['status', 'TEXT', ['DEFAULT', 'active']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'status TEXT DEFAULT active']
+        ['CREATE TABLE', 'users (status TEXT DEFAULT active)']
       ]);
     });
 
@@ -128,8 +118,7 @@ describe('ddl-tokenizer', () => {
           ['balance', 'INTEGER', ['DEFAULT', 0]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'balance INTEGER DEFAULT 0']
+        ['CREATE TABLE', 'users (balance INTEGER DEFAULT 0)']
       ]);
     });
 
@@ -140,8 +129,7 @@ describe('ddl-tokenizer', () => {
           ['deleted_at', 'TEXT', ['DEFAULT', null]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'deleted_at TEXT DEFAULT NULL']
+        ['CREATE TABLE', 'users (deleted_at TEXT DEFAULT NULL)']
       ]);
     });
 
@@ -152,8 +140,7 @@ describe('ddl-tokenizer', () => {
           ['age', 'INTEGER', ['CHECK', ['>=', 'age', 18]]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'age INTEGER CHECK (age >= 18)']
+        ['CREATE TABLE', 'users (age INTEGER CHECK (age >= 18))']
       ]);
     });
 
@@ -164,8 +151,7 @@ describe('ddl-tokenizer', () => {
           ['user_id', 'INTEGER', ['REFERENCES', ['users', 'id']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'orders'],
-        ['COLUMN', 'user_id INTEGER REFERENCES users(id)']
+        ['CREATE TABLE', 'orders (user_id INTEGER REFERENCES users(id))']
       ]);
     });
 
@@ -176,8 +162,7 @@ describe('ddl-tokenizer', () => {
           ['email', 'TEXT', ['NOT', null], ['UNIQUE']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'email TEXT NOT NULL UNIQUE']
+        ['CREATE TABLE', 'users (email TEXT NOT NULL UNIQUE)']
       ]);
     });
 
@@ -190,10 +175,7 @@ describe('ddl-tokenizer', () => {
           ['age', 'INTEGER', ['DEFAULT', 0], ['CHECK', ['>=', 'age', 0]]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'id INTEGER PRIMARY KEY NOT NULL'],
-        ['COLUMN', 'email TEXT NOT NULL UNIQUE'],
-        ['COLUMN', 'age INTEGER DEFAULT 0 CHECK (age >= 0)']
+        ['CREATE TABLE', 'users (id INTEGER PRIMARY KEY NOT NULL, email TEXT NOT NULL UNIQUE, age INTEGER DEFAULT 0 CHECK (age >= 0))']
       ]);
     });
   });
@@ -208,10 +190,7 @@ describe('ddl-tokenizer', () => {
           [['PRIMARY KEY', 'user_id', 'role_id']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'user_roles'],
-        ['COLUMN', 'user_id INTEGER'],
-        ['COLUMN', 'role_id INTEGER'],
-        ['PRIMARY KEY', '(user_id, role_id)']
+        ['CREATE TABLE', 'user_roles (user_id INTEGER, role_id INTEGER, PRIMARY KEY (user_id, role_id))']
       ]);
     });
 
@@ -224,10 +203,7 @@ describe('ddl-tokenizer', () => {
           [['UNIQUE', ['COMPOSITE', 'first_name', 'last_name']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users'],
-        ['COLUMN', 'first_name TEXT'],
-        ['COLUMN', 'last_name TEXT'],
-        ['UNIQUE', '(first_name, last_name)']
+        ['CREATE TABLE', 'users (first_name TEXT, last_name TEXT, UNIQUE (first_name, last_name))']
       ]);
     });
 
@@ -240,10 +216,7 @@ describe('ddl-tokenizer', () => {
           [['FOREIGN KEY', 'user_id'], ['REFERENCES', ['users', 'id']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'orders'],
-        ['COLUMN', 'id INTEGER'],
-        ['COLUMN', 'user_id INTEGER'],
-        ['FOREIGN KEY', '(user_id) REFERENCES users(id)']
+        ['CREATE TABLE', 'orders (id INTEGER, user_id INTEGER, FOREIGN KEY (user_id) REFERENCES users(id))']
       ]);
     });
 
@@ -256,10 +229,7 @@ describe('ddl-tokenizer', () => {
           [['CHECK', ['<', 'discount_price', 'price']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'products'],
-        ['COLUMN', 'price INTEGER'],
-        ['COLUMN', 'discount_price INTEGER'],
-        ['CHECK', '(discount_price < price)']
+        ['CREATE TABLE', 'products (price INTEGER, discount_price INTEGER, CHECK (discount_price < price))']
       ]);
     });
   });
@@ -280,11 +250,11 @@ describe('ddl-tokenizer', () => {
     it('handles CREATE INDEX IF NOT EXISTS', () => {
       expect(tokenizeDdl({
         createIndex: {
-          name: ['idx_users_email', 'IF NOT EXISTS'],
+          name: ['idx_users_email', 'if not exists'],
           on: ['users', 'email']
         }
       })).to.eql([
-        ['CREATE INDEX', 'idx_users_email IF NOT EXISTS'],
+        ['CREATE INDEX', 'IF NOT EXISTS idx_users_email'],
         ['ON', 'users (email)']
       ]);
     });
@@ -340,9 +310,9 @@ describe('ddl-tokenizer', () => {
 
     it('handles DROP TABLE IF EXISTS', () => {
       expect(tokenizeDdl({
-        dropTable: ['users', 'IF EXISTS']
+        dropTable: ['users', 'if exists']
       })).to.eql([
-        ['DROP TABLE', 'users IF EXISTS']
+        ['DROP TABLE', 'IF EXISTS users']
       ]);
     });
   });
@@ -358,9 +328,9 @@ describe('ddl-tokenizer', () => {
 
     it('handles DROP INDEX IF EXISTS', () => {
       expect(tokenizeDdl({
-        dropIndex: ['idx_users_email', 'IF EXISTS']
+        dropIndex: ['idx_users_email', 'if exists']
       })).to.eql([
-        ['DROP INDEX', 'idx_users_email IF EXISTS']
+        ['DROP INDEX', 'IF EXISTS idx_users_email']
       ]);
     });
   });
@@ -368,7 +338,7 @@ describe('ddl-tokenizer', () => {
   context('Complex schemas', () => {
     it('handles complete table with all features', () => {
       expect(tokenizeDdl({
-        createTable: ['users', 'IF NOT EXISTS'],
+        createTable: ['users', 'if not exists'],
         withColumns: [
           ['id', 'INTEGER', ['PRIMARY KEY'], ['NOT', null]],
           ['email', ['VARCHAR', 255], ['NOT', null], ['UNIQUE']],
@@ -376,11 +346,7 @@ describe('ddl-tokenizer', () => {
           ['created_at', 'TEXT', ['DEFAULT', null]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users IF NOT EXISTS'],
-        ['COLUMN', 'id INTEGER PRIMARY KEY NOT NULL'],
-        ['COLUMN', 'email VARCHAR(255) NOT NULL UNIQUE'],
-        ['COLUMN', 'age INTEGER DEFAULT 18 CHECK (age >= 18)'],
-        ['COLUMN', 'created_at TEXT DEFAULT NULL']
+        ['CREATE TABLE', 'IF NOT EXISTS users (id INTEGER PRIMARY KEY NOT NULL, email VARCHAR(255) NOT NULL UNIQUE, age INTEGER DEFAULT 18 CHECK (age >= 18), created_at TEXT DEFAULT NULL)']
       ]);
     });
 
@@ -395,12 +361,7 @@ describe('ddl-tokenizer', () => {
           [['FOREIGN KEY', 'role_id'], ['REFERENCES', ['roles', 'id']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'user_roles'],
-        ['COLUMN', 'user_id INTEGER NOT NULL'],
-        ['COLUMN', 'role_id INTEGER NOT NULL'],
-        ['PRIMARY KEY', '(user_id, role_id)'],
-        ['FOREIGN KEY', '(user_id) REFERENCES users(id)'],
-        ['FOREIGN KEY', '(role_id) REFERENCES roles(id)']
+        ['CREATE TABLE', 'user_roles (user_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY (user_id, role_id), FOREIGN KEY (user_id) REFERENCES users(id), FOREIGN KEY (role_id) REFERENCES roles(id))']
       ]);
     });
   });
