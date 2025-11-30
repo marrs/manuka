@@ -25,6 +25,7 @@
     "prepublishOnly": "yarn build"
   },
   "devDependencies": {
+    "@libsql/client": "^0.15.15",
     "@types/chai": "^5.0.1",
     "@types/chai-string": "^1",
     "@types/express": "^5.0.0",
