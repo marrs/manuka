@@ -1,5 +1,7 @@
-import type { CommonDml, Atom, CompoundExpr, Expr } from './types.ts';
+import type { CommonDml, CommonDdl, Atom, CompoundExpr, Expr } from './types.ts';
+import { DDL_KEYS } from './types.ts';
 import { tokenize } from './tokenizer.ts';
+import { tokenizeDdl } from './ddl-tokenizer.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
 function stringifyToken(token: number | string | null) {
@@ -65,31 +67,35 @@ export function partial(...partials: Partial<CommonDml>[]): (target: Partial<Com
   };
 }
 
-function formatWithSeparator(separator: string, dsl: CommonDml): string {
-  const tokens = tokenize(dsl);
+function isDdl(dsl: CommonDml | CommonDdl): dsl is CommonDdl {
+  return DDL_KEYS.some(key => key in dsl);
+}
+
+function formatWithSeparator(separator: string, dsl: CommonDml | CommonDdl): string {
+  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl);
   return separatorFormatter(separator, tokens);
 }
 
-function prettyFormat(dsl: CommonDml): string {
-  const tokens = tokenize(dsl);
+function prettyFormat(dsl: CommonDml | CommonDdl): string {
+  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl);
   return prettyFormatter(tokens);
 }
 
-export function format(dsl: CommonDml): string {
+export function format(dsl: CommonDml | CommonDdl): string {
   return formatWithSeparator(' ', dsl);
 }
 
-format.print = function(dsl: CommonDml): string {
+format.print = function(dsl: CommonDml | CommonDdl): string {
   const output = formatWithSeparator('\n', dsl);
   console.debug(output);
   return output;
 };
 
-format.pretty = function(dsl: CommonDml): string {
+format.pretty = function(dsl: CommonDml | CommonDdl): string {
   return prettyFormat(dsl);
 };
 
-format.pprint = function(dsl: CommonDml): string {
+format.pprint = function(dsl: CommonDml | CommonDdl): string {
   const output = prettyFormat(dsl);
   console.debug(output);
   return output;

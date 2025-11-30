@@ -146,3 +146,16 @@ describe('format.pprint', () => {
     consoleDebugStub.restore();
   });
 });
+
+describe('format with unified DML/DDL API', () => {
+  it('handles DML queries', () => {
+    expect(format({ select: ['*'], from: ['users'] })).to.eql("SELECT * FROM users");
+  });
+
+  it('handles DDL statements', () => {
+    expect(format({
+      createTable: 'users',
+      withColumns: [['id', 'INTEGER']]
+    })).to.eql("CREATE TABLE users COLUMN id INTEGER");
+  });
+});

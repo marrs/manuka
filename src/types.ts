@@ -67,6 +67,15 @@ export type TableConstraint =
   | [['FOREIGN KEY', string], ['REFERENCES', [string, string]]]
   | [['CHECK', Expr]];
 
+// DDL property keys (used for runtime type detection)
+export const DDL_KEYS = [
+  'createTable',
+  'withColumns',
+  'createIndex',
+  'dropTable',
+  'dropIndex'
+] as const;
+
 // Common SQL DDL (portable across all databases)
 export type CommonDdl = {
   // CREATE TABLE with column definitions
@@ -85,3 +94,7 @@ export type CommonDdl = {
   dropTable?: string | [string, 'IF EXISTS'];
   dropIndex?: string | [string, 'IF EXISTS'];
 };
+
+// Compile-time validation that DDL_KEYS matches CommonDdl keys
+type ValidateDdlKeys = typeof DDL_KEYS[number] extends keyof CommonDdl ? true : never;
+const _validateDdlKeys: ValidateDdlKeys = true;
