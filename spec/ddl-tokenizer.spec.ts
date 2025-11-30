@@ -107,7 +107,7 @@ describe('ddl-tokenizer', () => {
           ['status', 'TEXT', ['DEFAULT', 'active']]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'users (status TEXT DEFAULT active)']
+        ['CREATE TABLE', "users (status TEXT DEFAULT 'active')"]
       ]);
     });
 
@@ -229,7 +229,7 @@ describe('ddl-tokenizer', () => {
           [['CHECK', ['<', 'discount_price', 'price']]]
         ]
       })).to.eql([
-        ['CREATE TABLE', 'products (price INTEGER, discount_price INTEGER, CHECK (discount_price < price))']
+        ['CREATE TABLE', "products (price INTEGER, discount_price INTEGER, CHECK (discount_price < 'price'))"]
       ]);
     });
   });
@@ -294,7 +294,7 @@ describe('ddl-tokenizer', () => {
       })).to.eql([
         ['CREATE INDEX', 'idx_active_users'],
         ['ON', 'users (email)'],
-        ['WHERE', 'active = true']
+        ['WHERE', "active = 'true'"]
       ]);
     });
   });
