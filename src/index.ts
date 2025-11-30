@@ -1,4 +1,4 @@
-import type { DataDSL, Atom, CompoundExpr, Expr } from './types.ts';
+import type { CommonDml, Atom, CompoundExpr, Expr } from './types.ts';
 import { tokenize } from './tokenizer.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
@@ -56,8 +56,8 @@ function formatExpression(expr: Expr, parentOp?: string): string {
   return `${op}(${args.map((arg: Expr) => formatExpression(arg, op)).join(', ')})`;
 }
 
-export function partial(...partials: Partial<DataDSL>[]): (target: Partial<DataDSL>) => Partial<DataDSL> {
-  return (target: Partial<DataDSL>) => {
+export function partial(...partials: Partial<CommonDml>[]): (target: Partial<CommonDml>) => Partial<CommonDml> {
+  return (target: Partial<CommonDml>) => {
     for (const p of partials) {
       Object.assign(target, p);
     }
@@ -65,31 +65,31 @@ export function partial(...partials: Partial<DataDSL>[]): (target: Partial<DataD
   };
 }
 
-function formatWithSeparator(separator: string, dsl: DataDSL): string {
+function formatWithSeparator(separator: string, dsl: CommonDml): string {
   const tokens = tokenize(dsl);
   return separatorFormatter(separator, tokens);
 }
 
-function prettyFormat(dsl: DataDSL): string {
+function prettyFormat(dsl: CommonDml): string {
   const tokens = tokenize(dsl);
   return prettyFormatter(tokens);
 }
 
-export function format(dsl: DataDSL): string {
+export function format(dsl: CommonDml): string {
   return formatWithSeparator(' ', dsl);
 }
 
-format.print = function(dsl: DataDSL): string {
+format.print = function(dsl: CommonDml): string {
   const output = formatWithSeparator('\n', dsl);
   console.debug(output);
   return output;
 };
 
-format.pretty = function(dsl: DataDSL): string {
+format.pretty = function(dsl: CommonDml): string {
   return prettyFormat(dsl);
 };
 
-format.pprint = function(dsl: DataDSL): string {
+format.pprint = function(dsl: CommonDml): string {
   const output = prettyFormat(dsl);
   console.debug(output);
   return output;

@@ -1,9 +1,9 @@
 import type {
-  DataDSL, Expr, Atom, CompoundExpr, ExprToken,
+  CommonDml, Expr, Atom, CompoundExpr, ExprToken,
   ComparisonExpr, LogicalExpr, LogicalOp
 } from './types.ts';
 
-export function tokenize(dsl: DataDSL) {
+export function tokenize(dsl: CommonDml) {
   const tokens: ExprToken[] = [];
 
   if (dsl.select) {
