@@ -13,3 +13,4 @@ target
 .pnp.*
 
 node_modules
+testbed/*.db
