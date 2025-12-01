@@ -18,6 +18,8 @@ const upperCaseSqlKeywords = {
   'unique': 'UNIQUE',
   'default': 'DEFAULT',
   'text': 'TEXT',
+  'insert into': 'INSERT INTO',
+  'values': 'VALUES',
 }
 
 export function upperCaseSqlKeyword(kw: string) {

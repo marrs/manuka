@@ -9,11 +9,18 @@ export type ComparisonExpr = [ComparisonOp, string, Atom];
 export type LogicalOp = 'and' | 'or';
 export type LogicalExpr = [LogicalOp, Expr, Expr, ...Expr[]];
 
-// Compound expressions are either comparison or logical
-export type CompoundExpr = ComparisonExpr | LogicalExpr;
+// Arithmetic expressions for VALUES
+export type ArithmeticOp = '+' | '-' | '*' | '/' | '||' | '%';
+export type ArithmeticExpr = [ArithmeticOp, Expr, Expr];
+
+// Compound expressions are comparison, logical, or arithmetic
+export type CompoundExpr = ComparisonExpr | LogicalExpr | ArithmeticExpr;
 
 // An expression is either an atom or a compound expression
 export type Expr = Atom | CompoundExpr;
+
+// Value row type for INSERT
+export type ValueRow = (Atom | Expr)[];
 
 // Token types
 export type ExprToken = [string, string | ExprToken[]];
@@ -23,6 +30,11 @@ export type CommonDml = {
   from?: string[],
   where?: Expr,
   orderBy?: string | [string, string],
+
+  // INSERT support (following HoneySQL structure)
+  insertInto?: string,      // Table name (future: support [table, alias])
+  columns?: string[],       // Optional column list
+  values?: ValueRow[],      // Always array of arrays (HoneySQL convention)
 }
 
 // ============================================================================

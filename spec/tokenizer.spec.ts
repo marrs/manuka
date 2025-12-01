@@ -213,4 +213,186 @@ describe('tokenizer', () => {
       ]);
     });
   });
+
+  context('insert clause', () => {
+    context('basic INSERT', () => {
+      it('tokenizes INSERT INTO without column list', () => {
+        expect(tokenize({
+          insertInto: 'users',
+          values: [[1, 'John']]
+        })).to.eql([
+          ['INSERT INTO', 'users'],
+          ['VALUES', "(1, 'John')"]
+        ]);
+      });
+
+      it('tokenizes INSERT INTO with column list', () => {
+        expect(tokenize({
+          insertInto: 'users',
+          columns: ['id', 'name'],
+          values: [[1, 'John']]
+        })).to.eql([
+          ['INSERT INTO', 'users (id, name)'],
+          ['VALUES', "(1, 'John')"]
+        ]);
+      });
+
+      it('tokenizes multi-row INSERT', () => {
+        expect(tokenize({
+          insertInto: 'users',
+          values: [[1, 'John'], [2, 'Jane'], [3, 'Bob']]
+        })).to.eql([
+          ['INSERT INTO', 'users'],
+          ['VALUES', "(1, 'John'), (2, 'Jane'), (3, 'Bob')"]
+        ]);
+      });
+
+      it('tokenizes INSERT with NULL values', () => {
+        expect(tokenize({
+          insertInto: 'users',
+          values: [[1, null, 'active']]
+        })).to.eql([
+          ['INSERT INTO', 'users'],
+          ['VALUES', "(1, NULL, 'active')"]
+        ]);
+      });
+
+      it('tokenizes INSERT with numeric values', () => {
+        expect(tokenize({
+          insertInto: 'products',
+          values: [[1, 99.99, 10]]
+        })).to.eql([
+          ['INSERT INTO', 'products'],
+          ['VALUES', '(1, 99.99, 10)']
+        ]);
+      });
+
+      it('tokenizes INSERT with single value', () => {
+        expect(tokenize({
+          insertInto: 'counters',
+          values: [[42]]
+        })).to.eql([
+          ['INSERT INTO', 'counters'],
+          ['VALUES', '(42)']
+        ]);
+      });
+    });
+
+    context('INSERT with expressions', () => {
+      it('tokenizes arithmetic addition', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['+', 10, 5]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(10 + 5)']
+        ]);
+      });
+
+      it('tokenizes arithmetic subtraction', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['-', 20, 8]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(20 - 8)']
+        ]);
+      });
+
+      it('tokenizes arithmetic multiplication', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['*', 2, 3]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(2 * 3)']
+        ]);
+      });
+
+      it('tokenizes arithmetic division', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['/', 100, 10]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(100 / 10)']
+        ]);
+      });
+
+      it('tokenizes modulo operator', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['%', 17, 5]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(17 % 5)']
+        ]);
+      });
+
+      it('tokenizes string concatenation', () => {
+        expect(tokenize({
+          insertInto: 'names',
+          values: [[['||', 'John', ' Doe']]]
+        })).to.eql([
+          ['INSERT INTO', 'names'],
+          ['VALUES', "('John' || ' Doe')"]
+        ]);
+      });
+
+      it('tokenizes multiple expressions in single row', () => {
+        expect(tokenize({
+          insertInto: 'calc',
+          values: [[['+', 10, 5], ['*', 2, 3], ['-', 20, 8]]]
+        })).to.eql([
+          ['INSERT INTO', 'calc'],
+          ['VALUES', '(10 + 5, 2 * 3, 20 - 8)']
+        ]);
+      });
+
+      it('tokenizes mixed atoms and expressions', () => {
+        expect(tokenize({
+          insertInto: 'mixed',
+          values: [[1, ['+', 10, 5], 'test']]
+        })).to.eql([
+          ['INSERT INTO', 'mixed'],
+          ['VALUES', "(1, 10 + 5, 'test')"]
+        ]);
+      });
+
+      it('tokenizes nested arithmetic expressions', () => {
+        expect(tokenize({
+          insertInto: 'nested',
+          values: [[['+', ['*', 2, 3], 5]]]
+        })).to.eql([
+          ['INSERT INTO', 'nested'],
+          ['VALUES', '(2 * 3 + 5)']
+        ]);
+      });
+    });
+
+    context('edge cases', () => {
+      it('returns empty tokens when insertInto is missing', () => {
+        expect(tokenize({
+          values: [[1, 2]]
+        })).to.eql([]);
+      });
+
+      it('returns empty tokens when values is missing', () => {
+        expect(tokenize({
+          insertInto: 'users'
+        })).to.eql([]);
+      });
+
+      it('handles empty column list', () => {
+        expect(tokenize({
+          insertInto: 'users',
+          columns: [],
+          values: [[1, 'John']]
+        })).to.eql([
+          ['INSERT INTO', 'users'],
+          ['VALUES', "(1, 'John')"]
+        ]);
+      });
+    });
+  });
 });

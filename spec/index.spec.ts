@@ -162,3 +162,122 @@ describe('format with unified DML/DDL API', () => {
     })).to.eql("CREATE TABLE users (id INTEGER)");
   });
 });
+
+describe('insert', () => {
+  context('basic insert', () => {
+    it('formats basic INSERT with single row', () => {
+      expect(format({
+        insertInto: 'users',
+        values: [[1, 'John', 'john@example.com']]
+      })).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
+    });
+
+    it('formats INSERT with column list', () => {
+      expect(format({
+        insertInto: 'users',
+        columns: ['id', 'name', 'email'],
+        values: [[1, 'John', 'john@example.com']]
+      })).to.eql("INSERT INTO users (id, name, email) VALUES (1, 'John', 'john@example.com')");
+    });
+
+    it('formats multi-row INSERT', () => {
+      expect(format({
+        insertInto: 'users',
+        values: [[1, 'John'], [2, 'Jane'], [3, 'Bob']]
+      })).to.eql("INSERT INTO users VALUES (1, 'John'), (2, 'Jane'), (3, 'Bob')");
+    });
+
+    it('formats INSERT with NULL values', () => {
+      expect(format({
+        insertInto: 'users',
+        values: [[1, null, 'active']]
+      })).to.eql("INSERT INTO users VALUES (1, NULL, 'active')");
+    });
+
+    it('formats INSERT with numeric values', () => {
+      expect(format({
+        insertInto: 'products',
+        values: [[1, 99.99, 10]]
+      })).to.eql("INSERT INTO products VALUES (1, 99.99, 10)");
+    });
+
+    it('formats INSERT with single value', () => {
+      expect(format({
+        insertInto: 'counters',
+        values: [[42]]
+      })).to.eql("INSERT INTO counters VALUES (42)");
+    });
+  });
+
+  context('insert with expressions', () => {
+    it('formats INSERT with arithmetic addition', () => {
+      expect(format({
+        insertInto: 'calculations',
+        values: [[['+', 10, 5]]]
+      })).to.eql("INSERT INTO calculations VALUES (10 + 5)");
+    });
+
+    it('formats INSERT with multiple arithmetic operations', () => {
+      expect(format({
+        insertInto: 'calculations',
+        values: [[['+', 10, 5], ['*', 2, 3], ['-', 20, 8]]]
+      })).to.eql("INSERT INTO calculations VALUES (10 + 5, 2 * 3, 20 - 8)");
+    });
+
+    it('formats INSERT with string concatenation', () => {
+      expect(format({
+        insertInto: 'names',
+        values: [[['||', 'John', ' Doe']]]
+      })).to.eql("INSERT INTO names VALUES ('John' || ' Doe')");
+    });
+
+    it('formats INSERT with mixed atoms and expressions', () => {
+      expect(format({
+        insertInto: 'mixed',
+        values: [[1, ['+', 10, 5], 'test', ['*', 2, 3]]]
+      })).to.eql("INSERT INTO mixed VALUES (1, 10 + 5, 'test', 2 * 3)");
+    });
+
+    it('formats INSERT with nested arithmetic expressions', () => {
+      expect(format({
+        insertInto: 'nested',
+        values: [[['+', ['*', 2, 3], 5]]]
+      })).to.eql("INSERT INTO nested VALUES (2 * 3 + 5)");
+    });
+
+    it('formats INSERT with division and modulo', () => {
+      expect(format({
+        insertInto: 'math',
+        values: [[['/', 100, 10], ['%', 17, 5]]]
+      })).to.eql("INSERT INTO math VALUES (100 / 10, 17 % 5)");
+    });
+  });
+
+  context('insert with formatters', () => {
+    it('format.print() outputs INSERT with newlines', () => {
+      const result = format.print({
+        insertInto: 'users',
+        columns: ['id', 'name'],
+        values: [[1, 'John']]
+      });
+      expect(result).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
+    });
+
+    it('format.pretty() outputs INSERT with right-aligned keywords', () => {
+      const result = format.pretty({
+        insertInto: 'users',
+        columns: ['id', 'name'],
+        values: [[1, 'John']]
+      });
+      expect(result).to.eql("INSERT INTO users (id, name)\n     VALUES (1, 'John')");
+    });
+
+    it('format.pretty() handles multi-row INSERT', () => {
+      const result = format.pretty({
+        insertInto: 'users',
+        values: [[1, 'John'], [2, 'Jane']]
+      });
+      expect(result).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
+    });
+  });
+});

@@ -13,6 +13,18 @@ export const and = 'and';
 export const or = 'or';
 export const not = 'not';
 
+// Arithmetic operators
+export const add = '+';
+export const sub = '-';
+export const mul = '*';
+export const div = '/';
+export const mod = '%';
+export const cat = '||';  // Standard SQL concat (SQLite, PostgreSQL, Oracle)
+
+// DML keywords
+export const insertInto = 'insert into';
+export const values = 'values';
+
 // DDL types
 export const decimal = 'decimal';
 export const integer = 'integer';
