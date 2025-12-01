@@ -253,6 +253,65 @@ describe('insert', () => {
     });
   });
 
+  context('operator precedence', () => {
+    it('handles multiplication before addition (no parens needed)', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['+', 2, ['*', 3, 4]]]]
+      })).to.eql("INSERT INTO calc VALUES (2 + 3 * 4)");
+    });
+
+    it('adds parentheses for addition before multiplication', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['*', ['+', 2, 3], 4]]]
+      })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
+    });
+
+    it('adds parentheses for subtraction on right side of subtraction', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['-', 10, ['-', 5, 2]]]]
+      })).to.eql("INSERT INTO calc VALUES (10 - (5 - 2))");
+    });
+
+    it('no parentheses for subtraction on left side of subtraction', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['-', ['-', 10, 5], 2]]]
+      })).to.eql("INSERT INTO calc VALUES (10 - 5 - 2)");
+    });
+
+    it('adds parentheses for division on right side of division', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['-', 100, ['/', 20, 4]]]]
+      })).to.eql("INSERT INTO calc VALUES (100 - 20 / 4)");
+    });
+
+    it('handles concatenation with lower precedence than arithmetic', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['||', ['+', 2, 3], 'x']]]
+      })).to.eql("INSERT INTO calc VALUES (2 + 3 || 'x')");
+    });
+
+    it('adds parentheses for concatenation nested in multiplication', () => {
+      expect(format({
+        insertInto: 'calc',
+        values: [[['*', ['||', 'a', 'b'], 2]]]
+      })).to.eql("INSERT INTO calc VALUES (('a' || 'b') * 2)");
+    });
+
+    it('handles complex nested expressions with correct precedence', () => {
+      // (2 + 3) * 4 - 5
+      expect(format({
+        insertInto: 'calc',
+        values: [[['-', ['*', ['+', 2, 3], 4], 5]]]
+      })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4 - 5)");
+    });
+  });
+
   context('insert with formatters', () => {
     it('format.print() outputs INSERT with newlines', () => {
       const result = format.print({

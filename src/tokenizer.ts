@@ -128,6 +128,16 @@ function formatValue(value: Atom): string {
 // INSERT tokenization
 // ============================================================================
 
+// Operator precedence map (higher number = higher precedence)
+const PRECEDENCE: Record<string, number> = {
+  '||': 1,  // Concatenation (lowest)
+  '+': 2,   // Addition
+  '-': 2,   // Subtraction
+  '*': 3,   // Multiplication
+  '/': 3,   // Division
+  '%': 3,   // Modulo (highest)
+};
+
 function tokenizeInsert(dsl: CommonDml): ExprToken[] {
   const tokens: ExprToken[] = [];
 
@@ -150,14 +160,14 @@ function tokenizeInsert(dsl: CommonDml): ExprToken[] {
 function tokenizeValues(values: ValueRow[]): string {
   // HoneySQL convention: values is always array of arrays
   const formattedRows = values.map(row => {
-    const formattedValues = row.map(val => formatValueExpr(val));
+    const formattedValues = row.map(val => formatValueExpr(val, null));
     return `(${formattedValues.join(', ')})`;
   });
 
   return formattedRows.join(', ');
 }
 
-function formatValueExpr(value: Atom | Expr): string {
+function formatValueExpr(value: Atom | Expr, parentOp: string | null, isRightOperand: boolean = false): string {
   // Handle atoms (string, number, null)
   if (!isCompoundExpr(value)) {
     return formatInsertValue(value as Atom);
@@ -166,7 +176,19 @@ function formatValueExpr(value: Atom | Expr): string {
   // Handle arithmetic expressions
   if (isArithmeticExpr(value)) {
     const [operator, left, right] = value;
-    return `${formatValueExpr(left)} ${operator} ${formatValueExpr(right)}`;
+
+    // Format left and right operands with current operator as parent
+    const leftStr = formatValueExpr(left, operator, false);
+    const rightStr = formatValueExpr(right, operator, true);
+
+    const result = `${leftStr} ${operator} ${rightStr}`;
+
+    // Add parentheses if this operator has lower precedence than parent
+    if (parentOp && needsParentheses(operator, parentOp, isRightOperand)) {
+      return `(${result})`;
+    }
+
+    return result;
   }
 
   // Handle other expression types (comparison, logical) - not typical in VALUES
@@ -177,6 +199,27 @@ function formatValueExpr(value: Atom | Expr): string {
   }
 
   return '';
+}
+
+function needsParentheses(currentOp: string, parentOp: string, isRightOperand: boolean): boolean {
+  const currentPrecedence = PRECEDENCE[currentOp] || 0;
+  const parentPrecedence = PRECEDENCE[parentOp] || 0;
+
+  // Need parentheses if current operator has lower precedence than parent
+  if (currentPrecedence < parentPrecedence) {
+    return true;
+  }
+
+  // For same precedence on right side of - or /, need parentheses
+  // e.g., 10 - (5 - 2) != 10 - 5 - 2
+  // e.g., 10 / (5 / 2) != 10 / 5 / 2
+  if (currentPrecedence === parentPrecedence &&
+      isRightOperand &&
+      (parentOp === '-' || parentOp === '/')) {
+    return true;
+  }
+
+  return false;
 }
 
 function formatInsertValue(value: Atom): string {
