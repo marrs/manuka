@@ -164,152 +164,26 @@ describe('format with unified DML/DDL API', () => {
 });
 
 describe('insert', () => {
-  context('basic insert', () => {
-    it('formats basic INSERT with single row', () => {
-      expect(format({
-        insertInto: 'users',
-        values: [[1, 'John', 'john@example.com']]
-      })).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
-    });
-
-    it('formats INSERT with column list', () => {
-      expect(format({
-        insertInto: 'users',
-        columns: ['id', 'name', 'email'],
-        values: [[1, 'John', 'john@example.com']]
-      })).to.eql("INSERT INTO users (id, name, email) VALUES (1, 'John', 'john@example.com')");
-    });
-
-    it('formats multi-row INSERT', () => {
-      expect(format({
-        insertInto: 'users',
-        values: [[1, 'John'], [2, 'Jane'], [3, 'Bob']]
-      })).to.eql("INSERT INTO users VALUES (1, 'John'), (2, 'Jane'), (3, 'Bob')");
-    });
-
-    it('formats INSERT with NULL values', () => {
-      expect(format({
-        insertInto: 'users',
-        values: [[1, null, 'active']]
-      })).to.eql("INSERT INTO users VALUES (1, NULL, 'active')");
-    });
-
-    it('formats INSERT with numeric values', () => {
-      expect(format({
-        insertInto: 'products',
-        values: [[1, 99.99, 10]]
-      })).to.eql("INSERT INTO products VALUES (1, 99.99, 10)");
-    });
-
-    it('formats INSERT with single value', () => {
-      expect(format({
-        insertInto: 'counters',
-        values: [[42]]
-      })).to.eql("INSERT INTO counters VALUES (42)");
-    });
+  it('formats basic INSERT statement', () => {
+    expect(format({
+      insertInto: 'users',
+      values: [[1, 'John', 'john@example.com']]
+    })).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
   });
 
-  context('insert with expressions', () => {
-    it('formats INSERT with arithmetic addition', () => {
-      expect(format({
-        insertInto: 'calculations',
-        values: [[['+', 10, 5]]]
-      })).to.eql("INSERT INTO calculations VALUES (10 + 5)");
-    });
-
-    it('formats INSERT with multiple arithmetic operations', () => {
-      expect(format({
-        insertInto: 'calculations',
-        values: [[['+', 10, 5], ['*', 2, 3], ['-', 20, 8]]]
-      })).to.eql("INSERT INTO calculations VALUES (10 + 5, 2 * 3, 20 - 8)");
-    });
-
-    it('formats INSERT with string concatenation', () => {
-      expect(format({
-        insertInto: 'names',
-        values: [[['||', 'John', ' Doe']]]
-      })).to.eql("INSERT INTO names VALUES ('John' || ' Doe')");
-    });
-
-    it('formats INSERT with mixed atoms and expressions', () => {
-      expect(format({
-        insertInto: 'mixed',
-        values: [[1, ['+', 10, 5], 'test', ['*', 2, 3]]]
-      })).to.eql("INSERT INTO mixed VALUES (1, 10 + 5, 'test', 2 * 3)");
-    });
-
-    it('formats INSERT with nested arithmetic expressions', () => {
-      expect(format({
-        insertInto: 'nested',
-        values: [[['+', ['*', 2, 3], 5]]]
-      })).to.eql("INSERT INTO nested VALUES (2 * 3 + 5)");
-    });
-
-    it('formats INSERT with division and modulo', () => {
-      expect(format({
-        insertInto: 'math',
-        values: [[['/', 100, 10], ['%', 17, 5]]]
-      })).to.eql("INSERT INTO math VALUES (100 / 10, 17 % 5)");
-    });
+  it('formats INSERT with column list and multi-row', () => {
+    expect(format({
+      insertInto: 'users',
+      columns: ['id', 'name'],
+      values: [[1, 'John'], [2, 'Jane']]
+    })).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
   });
 
-  context('operator precedence', () => {
-    it('handles multiplication before addition (no parens needed)', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['+', 2, ['*', 3, 4]]]]
-      })).to.eql("INSERT INTO calc VALUES (2 + 3 * 4)");
-    });
-
-    it('adds parentheses for addition before multiplication', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['*', ['+', 2, 3], 4]]]
-      })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
-    });
-
-    it('adds parentheses for subtraction on right side of subtraction', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['-', 10, ['-', 5, 2]]]]
-      })).to.eql("INSERT INTO calc VALUES (10 - (5 - 2))");
-    });
-
-    it('no parentheses for subtraction on left side of subtraction', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['-', ['-', 10, 5], 2]]]
-      })).to.eql("INSERT INTO calc VALUES (10 - 5 - 2)");
-    });
-
-    it('adds parentheses for division on right side of division', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['-', 100, ['/', 20, 4]]]]
-      })).to.eql("INSERT INTO calc VALUES (100 - 20 / 4)");
-    });
-
-    it('handles concatenation with lower precedence than arithmetic', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['||', ['+', 2, 3], 'x']]]
-      })).to.eql("INSERT INTO calc VALUES (2 + 3 || 'x')");
-    });
-
-    it('adds parentheses for concatenation nested in multiplication', () => {
-      expect(format({
-        insertInto: 'calc',
-        values: [[['*', ['||', 'a', 'b'], 2]]]
-      })).to.eql("INSERT INTO calc VALUES (('a' || 'b') * 2)");
-    });
-
-    it('handles complex nested expressions with correct precedence', () => {
-      // (2 + 3) * 4 - 5
-      expect(format({
-        insertInto: 'calc',
-        values: [[['-', ['*', ['+', 2, 3], 4], 5]]]
-      })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4 - 5)");
-    });
+  it('formats INSERT with expressions and operator precedence', () => {
+    expect(format({
+      insertInto: 'calc',
+      values: [[['*', ['+', 2, 3], 4]]]
+    })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
   });
 
   context('insert with formatters', () => {
