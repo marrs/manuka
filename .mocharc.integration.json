@@ -1,0 +1,7 @@
+{
+  "extension": ["ts", "mts"],
+  "spec": "integration/scenarios/**/*.spec.ts",
+  "require": "tsx",
+  "timeout": 10000,
+  "slow": 2000
+}
