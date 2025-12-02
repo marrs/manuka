@@ -20,6 +20,8 @@
   ],
   "scripts": {
     "test": "mocha",
+    "integration:common": "mocha --config .mocharc.integration.json",
+    "test:all": "yarn test && yarn integration:common",
     "testbed": "tsx testbed/test-db.ts",
     "build": "tsup src/builder.ts --format esm --dts --outDir target",
     "watch": "tsup src/builder.ts --format esm --dts --outDir target --watch",
