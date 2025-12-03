@@ -469,7 +469,8 @@ describe('separator formatter', () => {
       it('replaces single placeholder marker with ?', () => {
         const context = {
           placeholders: [0],
-          dialect: 'common' as const
+          dialect: 'common' as const,
+          formatPlaceholder: () => '?'
         };
 
         const sql = separatorFormatter(' ', [
@@ -482,7 +483,8 @@ describe('separator formatter', () => {
       it('replaces multiple placeholder markers with ?', () => {
         const context = {
           placeholders: [0, 1],
-          dialect: 'common' as const
+          dialect: 'common' as const,
+          formatPlaceholder: () => '?'
         };
 
         const sql = separatorFormatter(' ', [
@@ -498,7 +500,8 @@ describe('separator formatter', () => {
       it('replaces single placeholder marker with $1', () => {
         const context = {
           placeholders: [0],
-          dialect: 'pg' as const
+          dialect: 'pg' as const,
+          formatPlaceholder: (idx: number) => `$${idx + 1}`
         };
 
         const sql = separatorFormatter(' ', [
@@ -511,7 +514,8 @@ describe('separator formatter', () => {
       it('replaces multiple placeholder markers with $1, $2, etc.', () => {
         const context = {
           placeholders: [0, 1, 2],
-          dialect: 'pg' as const
+          dialect: 'pg' as const,
+          formatPlaceholder: (idx: number) => `$${idx + 1}`
         };
 
         const sql = separatorFormatter(' ', [
@@ -528,7 +532,8 @@ describe('separator formatter', () => {
       it('replaces markers in formatted output for common', () => {
         const context = {
           placeholders: [0, 1],
-          dialect: 'common' as const
+          dialect: 'common' as const,
+          formatPlaceholder: () => '?'
         };
 
         const sql = prettyFormatter([
@@ -544,7 +549,8 @@ describe('separator formatter', () => {
       it('replaces markers in formatted output for pg', () => {
         const context = {
           placeholders: [0, 1],
-          dialect: 'pg' as const
+          dialect: 'pg' as const,
+          formatPlaceholder: (idx: number) => `$${idx + 1}`
         };
 
         const sql = prettyFormatter([

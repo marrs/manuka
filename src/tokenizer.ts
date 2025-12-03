@@ -1,14 +1,48 @@
 import type {
   CommonDml, Expr, Atom, CompoundExpr, ExprToken,
-  ComparisonExpr, LogicalExpr, LogicalOp, ValueRow
+  ComparisonExpr, LogicalExpr, LogicalOp, ValueRow,
+  Placeholder, PlaceholderContext
 } from './types.ts';
 
-export function tokenizeDml(dsl: CommonDml) {
+// Helper to detect if a value is a placeholder
+function isPlaceholder(value: unknown): value is Placeholder {
+  // Check if it's a function with __isPlaceholder (the $ function itself)
+  if (typeof value === 'function' && '__isPlaceholder' in value) {
+    return true;
+  }
+  // Check if it's a named placeholder object
+  if (typeof value === 'object' && value !== null && '__placeholder' in value) {
+    return true;
+  }
+  return false;
+}
+
+// Handle placeholder detection and create marker
+function handlePlaceholder(value: Placeholder, context?: PlaceholderContext): string {
+  if (!context) {
+    // No context provided - shouldn't happen in normal flow
+    return '?';
+  }
+
+  const index = context.placeholders.length;
+
+  // Check if it's a named placeholder
+  if (typeof value === 'object' && '__placeholder' in value && 'key' in value) {
+    context.placeholders.push(value.key);
+  } else {
+    // Positional placeholder (the function itself)
+    context.placeholders.push(index);
+  }
+
+  return `\x00MANUKA_PH_${index}\x00`;
+}
+
+export function tokenizeDml(dsl: CommonDml, context?: PlaceholderContext) {
   const tokens: ExprToken[] = [];
 
   // INSERT (process before SELECT)
   if (dsl.insertInto) {
-    tokens.push(...tokenizeInsert(dsl));
+    tokens.push(...tokenizeInsert(dsl, context));
   }
 
   if (dsl.select) {
@@ -20,7 +54,7 @@ export function tokenizeDml(dsl: CommonDml) {
   }
 
   if (dsl.where) {
-    tokens.push(...tokenizeWhere(dsl.where));
+    tokens.push(...tokenizeWhere(dsl.where, context));
   }
 
   if (dsl.orderBy) {
@@ -36,27 +70,27 @@ export function tokenizeDml(dsl: CommonDml) {
 }
 
 // Backwards compatibility
-export function tokenize(dsl: CommonDml) {
-  return tokenizeDml(dsl);
+export function tokenize(dsl: CommonDml, context?: PlaceholderContext) {
+  return tokenizeDml(dsl, context);
 }
 
-function tokenizeWhere(expr: Expr): ExprToken[] {
-  return tokenizeExpr(expr, 'WHERE');
+function tokenizeWhere(expr: Expr, context?: PlaceholderContext): ExprToken[] {
+  return tokenizeExpr(expr, 'WHERE', context);
 }
 
-function tokenizeExpr(expr: Expr, keyword: string): ExprToken[] {
+function tokenizeExpr(expr: Expr, keyword: string, context?: PlaceholderContext): ExprToken[] {
   if (!isCompoundExpr(expr)) {
-    return [[keyword, formatValue(expr)]];
+    return [[keyword, formatValue(expr, context)]];
   }
 
   if (isComparisonExpr(expr)) {
     const [operator, left, right] = expr;
-    return [[keyword, `${left} ${operator} ${formatValue(right)}`]];
+    return [[keyword, `${left} ${operator} ${formatValue(right, context)}`]];
   }
 
   if (isLogicalExpr(expr)) {
     const [operator, ...operands] = expr;
-    return tokenizeLogical(operator, operands, keyword);
+    return tokenizeLogical(operator, operands, keyword, context);
   }
 
   return [];
@@ -65,7 +99,8 @@ function tokenizeExpr(expr: Expr, keyword: string): ExprToken[] {
 function tokenizeLogical(
   operator: LogicalOp,
   operands: Expr[],
-  firstKeyword: string
+  firstKeyword: string,
+  context?: PlaceholderContext
 ): ExprToken[] {
   const tokens: ExprToken[] = [];
   const keyword = operator.toUpperCase();
@@ -76,11 +111,11 @@ function tokenizeLogical(
 
     if (!isCompoundExpr(operand)) {
       // Simple atom
-      tokens.push([currentKeyword, formatValue(operand)]);
+      tokens.push([currentKeyword, formatValue(operand, context)]);
     } else if (isComparisonExpr(operand)) {
       // Comparison predicate
       const [op, left, right] = operand;
-      tokens.push([currentKeyword, `${left} ${op} ${formatValue(right)}`]);
+      tokens.push([currentKeyword, `${left} ${op} ${formatValue(right, context)}`]);
     } else if (isLogicalExpr(operand)) {
       // Nested logical expression
       const [op, ...subOperands] = operand;
@@ -88,11 +123,11 @@ function tokenizeLogical(
       // Precedence rule: OR inside AND needs nesting, AND inside OR flattens
       if (operator === 'and' && op === 'or') {
         // OR inside AND: create nested array
-        const nestedTokens = tokenizeLogical(op, subOperands, '');
+        const nestedTokens = tokenizeLogical(op, subOperands, '', context);
         tokens.push([currentKeyword, nestedTokens]);
       } else {
         // AND inside OR or same operator: flatten
-        const flatTokens = tokenizeLogical(op, subOperands, currentKeyword);
+        const flatTokens = tokenizeLogical(op, subOperands, currentKeyword, context);
         tokens.push(...flatTokens);
       }
     }
@@ -118,7 +153,12 @@ function isComparisonOperator(op: string): boolean {
   return ['=', '<>', '<', '>', '<=', '>=', 'LIKE'].includes(op);
 }
 
-function formatValue(value: Atom): string {
+function formatValue(value: Atom, context?: PlaceholderContext): string {
+  // Check for placeholder first
+  if (isPlaceholder(value)) {
+    return handlePlaceholder(value, context);
+  }
+
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   return value;
@@ -138,7 +178,7 @@ const PRECEDENCE: Record<string, number> = {
   '%': 3,   // Modulo (highest)
 };
 
-function tokenizeInsert(dsl: CommonDml): ExprToken[] {
+function tokenizeInsert(dsl: CommonDml, context?: PlaceholderContext): ExprToken[] {
   const tokens: ExprToken[] = [];
 
   if (!dsl.insertInto || !dsl.values) {
@@ -152,25 +192,25 @@ function tokenizeInsert(dsl: CommonDml): ExprToken[] {
   }
 
   tokens.push(['INSERT INTO', insertClause]);
-  tokens.push(['VALUES', tokenizeValues(dsl.values)]);
+  tokens.push(['VALUES', tokenizeValues(dsl.values, context)]);
 
   return tokens;
 }
 
-function tokenizeValues(values: ValueRow[]): string {
+function tokenizeValues(values: ValueRow[], context?: PlaceholderContext): string {
   // HoneySQL convention: values is always array of arrays
   const formattedRows = values.map(row => {
-    const formattedValues = row.map(val => formatValueExpr(val, null));
+    const formattedValues = row.map(val => formatValueExpr(val, null, false, context));
     return `(${formattedValues.join(', ')})`;
   });
 
   return formattedRows.join(', ');
 }
 
-function formatValueExpr(value: Atom | Expr, parentOp: string | null, isRightOperand: boolean = false): string {
+function formatValueExpr(value: Atom | Expr, parentOp: string | null, isRightOperand: boolean = false, context?: PlaceholderContext): string {
   // Handle atoms (string, number, null)
   if (!isCompoundExpr(value)) {
-    return formatInsertValue(value as Atom);
+    return formatInsertValue(value as Atom, context);
   }
 
   // Handle arithmetic expressions
@@ -178,8 +218,8 @@ function formatValueExpr(value: Atom | Expr, parentOp: string | null, isRightOpe
     const [operator, left, right] = value;
 
     // Format left and right operands with current operator as parent
-    const leftStr = formatValueExpr(left, operator, false);
-    const rightStr = formatValueExpr(right, operator, true);
+    const leftStr = formatValueExpr(left, operator, false, context);
+    const rightStr = formatValueExpr(right, operator, true, context);
 
     const result = `${leftStr} ${operator} ${rightStr}`;
 
@@ -195,7 +235,7 @@ function formatValueExpr(value: Atom | Expr, parentOp: string | null, isRightOpe
   // but forward to existing logic
   if (isComparisonExpr(value)) {
     const [operator, left, right] = value;
-    return `${left} ${operator} ${formatInsertValue(right)}`;
+    return `${left} ${operator} ${formatInsertValue(right, context)}`;
   }
 
   return '';
@@ -222,7 +262,12 @@ function needsParentheses(currentOp: string, parentOp: string, isRightOperand: b
   return false;
 }
 
-function formatInsertValue(value: Atom): string {
+function formatInsertValue(value: Atom, context?: PlaceholderContext): string {
+  // Check for placeholder first
+  if (isPlaceholder(value)) {
+    return handlePlaceholder(value, context);
+  }
+
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   // String values - add quotes for INSERT VALUES

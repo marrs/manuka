@@ -1,6 +1,24 @@
 import { expect } from 'chai';
 import { tokenize } from '../src/tokenizer.ts';
 import { $ } from '../src/index.ts';
+import type { PlaceholderContext } from '../src/types.ts';
+
+// Helper functions to create placeholder contexts
+function createCommonContext(): PlaceholderContext {
+  return {
+    placeholders: [],
+    dialect: 'common',
+    formatPlaceholder: () => '?'
+  };
+}
+
+function createPgContext(): PlaceholderContext {
+  return {
+    placeholders: [],
+    dialect: 'pg',
+    formatPlaceholder: (idx: number) => `$${idx + 1}`
+  };
+}
 
 describe('tokenizer', () => {
   context('where clause', () => {
@@ -482,7 +500,7 @@ describe('tokenizer', () => {
   context('placeholders', () => {
     context('positional placeholder', () => {
       it('converts to marker with common dialect', () => {
-        const context = { placeholders: [], dialect: 'common' as const };
+        const context = createCommonContext();
 
         const result = tokenize({
           where: ['=', 'id', $]
@@ -493,7 +511,7 @@ describe('tokenizer', () => {
       });
 
       it('converts to marker with pg dialect', () => {
-        const context = { placeholders: [], dialect: 'pg' as const };
+        const context = createPgContext();
 
         const result = tokenize({
           where: ['=', 'id', $]
@@ -506,7 +524,7 @@ describe('tokenizer', () => {
 
     context('named placeholder', () => {
       it('converts to marker with common dialect', () => {
-        const context = { placeholders: [], dialect: 'common' as const };
+        const context = createCommonContext();
 
         const result = tokenize({
           where: ['=', 'email', $('userEmail')]
@@ -517,7 +535,7 @@ describe('tokenizer', () => {
       });
 
       it('converts to marker with pg dialect', () => {
-        const context = { placeholders: [], dialect: 'pg' as const };
+        const context = createPgContext();
 
         const result = tokenize({
           where: ['=', 'email', $('userEmail')]
@@ -530,7 +548,7 @@ describe('tokenizer', () => {
 
     context('multiple placeholders', () => {
       it('tracks placeholders sequentially with common dialect', () => {
-        const context = { placeholders: [], dialect: 'common' as const };
+        const context = createCommonContext();
 
         tokenize({
           where: ['and', ['=', 'id', $], ['=', 'status', $]]
@@ -540,7 +558,7 @@ describe('tokenizer', () => {
       });
 
       it('tracks placeholders sequentially with pg dialect', () => {
-        const context = { placeholders: [], dialect: 'pg' as const };
+        const context = createPgContext();
 
         tokenize({
           where: ['and', ['=', 'id', $], ['=', 'status', $]]
@@ -550,7 +568,7 @@ describe('tokenizer', () => {
       });
 
       it('handles mixed positional and named placeholders', () => {
-        const context = { placeholders: [], dialect: 'common' as const };
+        const context = createCommonContext();
 
         tokenize({
           where: ['and', ['=', 'id', $], ['=', 'email', $('email')]]

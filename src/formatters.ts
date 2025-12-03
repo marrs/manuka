@@ -1,5 +1,17 @@
-import type { ExprToken } from './types.ts';
+import type { ExprToken, PlaceholderContext } from './types.ts';
 import { upperCaseSqlKeyword } from './core.ts';
+
+// Replace placeholder markers with dialect-specific placeholders
+function replacePlaceholders(text: string, context?: PlaceholderContext): string {
+  if (!context) {
+    return text;
+  }
+
+  return text.replace(/\x00MANUKA_PH_(\d+)\x00/g, (_, indexStr) => {
+    const index = parseInt(indexStr, 10);
+    return context.formatPlaceholder(index);
+  });
+}
 
 function formatSimpleOperand(operand: string | ExprToken[]): string {
   if (typeof operand === 'string') {
@@ -34,25 +46,29 @@ function formatSimple(token: ExprToken): string {
   }
 }
 
-export function separatorFormatter(separator: string, tokens: ExprToken | ExprToken[]): string {
+export function separatorFormatter(separator: string, tokens: ExprToken | ExprToken[], context?: PlaceholderContext): string {
   // Handle single token case
   if (!Array.isArray(tokens[0])) {
-    return formatSimple(tokens as ExprToken);
+    const result = formatSimple(tokens as ExprToken);
+    return replacePlaceholders(result, context);
   }
 
   // Handle array of tokens
   const lines = (tokens as ExprToken[]).map(formatSimple);
-  return lines.join(separator);
+  const result = lines.join(separator);
+  return replacePlaceholders(result, context);
 }
 
-export function prettyFormatter(tokens: ExprToken | ExprToken[]): string {
+export function prettyFormatter(tokens: ExprToken | ExprToken[], context?: PlaceholderContext): string {
   // Handle single token case
   if (!Array.isArray(tokens[0])) {
-    return formatSingleToken(tokens as ExprToken, 0);
+    const result = formatSingleToken(tokens as ExprToken, 0);
+    return replacePlaceholders(result, context);
   }
 
   // Handle array of tokens
-  return formatTokenArray(tokens as ExprToken[], 0);
+  const result = formatTokenArray(tokens as ExprToken[], 0);
+  return replacePlaceholders(result, context);
 }
 
 function formatSingleToken(token: ExprToken, baseIndent: number): string {

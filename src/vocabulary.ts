@@ -38,3 +38,20 @@ export const ifExists = 'if exists';
 export const primaryKey = 'primary key';
 export const references = 'references';
 export const unique = 'unique';
+
+// Placeholder types
+type PlaceholderNamed = { __placeholder: true; key: string };
+
+type PlaceholderFn = {
+  (key: string): PlaceholderNamed;
+  __isPlaceholder: true;
+};
+
+// Placeholder function for prepared statements
+// Usage: $ (positional) or $('key') (named)
+export const $: PlaceholderFn = Object.assign(
+  function(key: string): PlaceholderNamed {
+    return { __placeholder: true, key };
+  },
+  { __isPlaceholder: true as const }
+);

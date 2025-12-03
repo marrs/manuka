@@ -1,5 +1,15 @@
-// Atom values
-export type Atom = string | number | null;
+// Placeholder types for prepared statements
+export type PlaceholderNamed = { __placeholder: true; key: string };
+
+export type PlaceholderFn = {
+  (key: string): PlaceholderNamed;
+  __isPlaceholder: true;
+};
+
+export type Placeholder = PlaceholderFn | PlaceholderNamed;
+
+// Atom values (including placeholders)
+export type Atom = string | number | null | Placeholder;
 
 // Comparison expressions: operator, field name, value
 export type ComparisonOp = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'LIKE';
@@ -24,6 +34,17 @@ export type ValueRow = (Atom | Expr)[];
 
 // Token types
 export type ExprToken = [string, string | ExprToken[]];
+
+// Placeholder context for tracking placeholders during tokenization
+export type Dialect = 'common' | 'pg';
+
+export type PlaceholderFormatter = (index: number) => string;
+
+export type PlaceholderContext = {
+  placeholders: Array<number | string>;
+  dialect: Dialect;
+  formatPlaceholder: PlaceholderFormatter;
+};
 
 export type CommonDml = {
   select?: string[],
