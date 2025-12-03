@@ -463,4 +463,99 @@ describe('separator formatter', () => {
       });
     });
   });
+
+  context('placeholder replacement', () => {
+    context('common dialect', () => {
+      it('replaces single placeholder marker with ?', () => {
+        const context = {
+          placeholders: [0],
+          dialect: 'common' as const
+        };
+
+        const sql = separatorFormatter(' ', [
+          ['where', 'id = \x00MANUKA_PH_0\x00']
+        ], context);
+
+        expect(sql).to.equal('where id = ?');
+      });
+
+      it('replaces multiple placeholder markers with ?', () => {
+        const context = {
+          placeholders: [0, 1],
+          dialect: 'common' as const
+        };
+
+        const sql = separatorFormatter(' ', [
+          ['where', 'id = \x00MANUKA_PH_0\x00'],
+          ['and', 'status = \x00MANUKA_PH_1\x00']
+        ], context);
+
+        expect(sql).to.equal('where id = ? and status = ?');
+      });
+    });
+
+    context('pg dialect', () => {
+      it('replaces single placeholder marker with $1', () => {
+        const context = {
+          placeholders: [0],
+          dialect: 'pg' as const
+        };
+
+        const sql = separatorFormatter(' ', [
+          ['where', 'id = \x00MANUKA_PH_0\x00']
+        ], context);
+
+        expect(sql).to.equal('where id = $1');
+      });
+
+      it('replaces multiple placeholder markers with $1, $2, etc.', () => {
+        const context = {
+          placeholders: [0, 1, 2],
+          dialect: 'pg' as const
+        };
+
+        const sql = separatorFormatter(' ', [
+          ['where', 'id = \x00MANUKA_PH_0\x00'],
+          ['and', 'status = \x00MANUKA_PH_1\x00'],
+          ['and', 'type = \x00MANUKA_PH_2\x00']
+        ], context);
+
+        expect(sql).to.equal('where id = $1 and status = $2 and type = $3');
+      });
+    });
+
+    context('prettyFormatter with placeholders', () => {
+      it('replaces markers in formatted output for common', () => {
+        const context = {
+          placeholders: [0, 1],
+          dialect: 'common' as const
+        };
+
+        const sql = prettyFormatter([
+          ['SELECT', 'id'],
+          ['WHERE', 'id = \x00MANUKA_PH_0\x00'],
+          ['AND', 'status = \x00MANUKA_PH_1\x00']
+        ], context);
+
+        expect(sql).to.include('id = ?');
+        expect(sql).to.include('status = ?');
+      });
+
+      it('replaces markers in formatted output for pg', () => {
+        const context = {
+          placeholders: [0, 1],
+          dialect: 'pg' as const
+        };
+
+        const sql = prettyFormatter([
+          ['SELECT', 'id'],
+          ['WHERE', 'id = \x00MANUKA_PH_0\x00'],
+          ['AND', 'status = \x00MANUKA_PH_1\x00']
+        ], context);
+
+        expect(sql).to.include('id = $1');
+        expect(sql).to.include('status = $2');
+      });
+    });
+  });
 });

@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { tokenize } from '../src/tokenizer.ts';
+import { $ } from '../src/index.ts';
 
 describe('tokenizer', () => {
   context('where clause', () => {
@@ -474,6 +475,88 @@ describe('tokenizer', () => {
           ['INSERT INTO', 'users'],
           ['VALUES', "(1, 'John')"]
         ]);
+      });
+    });
+  });
+
+  context('placeholders', () => {
+    context('positional placeholder', () => {
+      it('converts to marker with common dialect', () => {
+        const context = { placeholders: [], dialect: 'common' as const };
+
+        const result = tokenize({
+          where: ['=', 'id', $]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal([0]);
+        expect(result).to.deep.include(['WHERE', 'id = \x00MANUKA_PH_0\x00']);
+      });
+
+      it('converts to marker with pg dialect', () => {
+        const context = { placeholders: [], dialect: 'pg' as const };
+
+        const result = tokenize({
+          where: ['=', 'id', $]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal([0]);
+        expect(result).to.deep.include(['WHERE', 'id = \x00MANUKA_PH_0\x00']);
+      });
+    });
+
+    context('named placeholder', () => {
+      it('converts to marker with common dialect', () => {
+        const context = { placeholders: [], dialect: 'common' as const };
+
+        const result = tokenize({
+          where: ['=', 'email', $('userEmail')]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal(['userEmail']);
+        expect(result).to.deep.include(['WHERE', 'email = \x00MANUKA_PH_0\x00']);
+      });
+
+      it('converts to marker with pg dialect', () => {
+        const context = { placeholders: [], dialect: 'pg' as const };
+
+        const result = tokenize({
+          where: ['=', 'email', $('userEmail')]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal(['userEmail']);
+        expect(result).to.deep.include(['WHERE', 'email = \x00MANUKA_PH_0\x00']);
+      });
+    });
+
+    context('multiple placeholders', () => {
+      it('tracks placeholders sequentially with common dialect', () => {
+        const context = { placeholders: [], dialect: 'common' as const };
+
+        tokenize({
+          where: ['and', ['=', 'id', $], ['=', 'status', $]]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal([0, 1]);
+      });
+
+      it('tracks placeholders sequentially with pg dialect', () => {
+        const context = { placeholders: [], dialect: 'pg' as const };
+
+        tokenize({
+          where: ['and', ['=', 'id', $], ['=', 'status', $]]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal([0, 1]);
+      });
+
+      it('handles mixed positional and named placeholders', () => {
+        const context = { placeholders: [], dialect: 'common' as const };
+
+        tokenize({
+          where: ['and', ['=', 'id', $], ['=', 'email', $('email')]]
+        }, context);
+
+        expect(context.placeholders).to.deep.equal([0, 'email']);
       });
     });
   });

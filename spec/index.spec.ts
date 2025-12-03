@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { format, partial, validate } from '../src/index.ts';
+import { format, partial, validate, $ } from '../src/index.ts';
 import {
   integer,
   and, or, eq, ne, lt, gt, gte
@@ -211,6 +211,130 @@ describe('insert', () => {
         values: [[1, 'John'], [2, 'Jane']]
       });
       expect(result).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
+    });
+  });
+});
+
+describe('placeholders', () => {
+  context('format() with placeholders', () => {
+    it('generates query with ? placeholders for common dialect', () => {
+      const sql = format({
+        select: ['*'],
+        from: ['users'],
+        where: [eq, 'id', $]
+      }, [123], 'common');
+
+      expect(sql).to.equal('SELECT * FROM users WHERE id = ?');
+    });
+
+    it('generates query with $1, $2 placeholders for pg dialect', () => {
+      const sql = format({
+        select: ['*'],
+        from: ['users'],
+        where: [and, [eq, 'id', $], [eq, 'status', $]]
+      }, [123, 'active'], 'pg');
+
+      expect(sql).to.equal('SELECT * FROM users WHERE id = $1 AND status = $2');
+    });
+
+    it('handles named placeholders with object bindings', () => {
+      const sql = format({
+        select: ['*'],
+        from: ['users'],
+        where: [eq, 'email', $('email')]
+      }, { email: 'test@example.com' }, 'common');
+
+      expect(sql).to.equal('SELECT * FROM users WHERE email = ?');
+    });
+
+    it('validates positional binding count matches placeholder count', () => {
+      expect(() => {
+        format({
+          where: [and, [eq, 'id', $], [eq, 'status', $]]
+        }, [123]); // Only 1 binding for 2 placeholders
+      }).to.throw(/parameter/i);
+    });
+
+    it('validates named binding keys exist', () => {
+      expect(() => {
+        format({
+          where: [eq, 'email', $('email')]
+        }, { wrongKey: 'test@example.com' });
+      }).to.throw(/email/i);
+    });
+
+    it('works without bindings parameter (no validation)', () => {
+      const sql = format({
+        where: [eq, 'id', $]
+      }, undefined, 'common');
+
+      expect(sql).to.equal('WHERE id = ?');
+    });
+
+    it('handles placeholders in INSERT VALUES', () => {
+      const sql = format({
+        insertInto: 'users',
+        columns: ['id', 'name', 'email'],
+        values: [[$, $, $]]
+      }, [1, 'John', 'john@example.com'], 'common');
+
+      expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
+    });
+  });
+
+  context('format.print() with placeholders', () => {
+    it('substitutes values when bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      const sql = format.print({
+        where: [eq, 'id', $]
+      }, [123], 'common');
+
+      expect(sql).to.include('id = 123');
+      consoleDebugStub.restore();
+    });
+
+    it('shows placeholder syntax when no bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      const sql = format.print({
+        where: [and, [eq, 'id', $], [eq, 'status', $]]
+      }, undefined, 'common');
+
+      expect(sql).to.include('$(0)');
+      expect(sql).to.include('$(1)');
+      consoleDebugStub.restore();
+    });
+
+    it('shows named placeholder syntax for named placeholders', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      const sql = format.print({
+        where: [eq, 'email', $('email')]
+      }, undefined, 'common');
+
+      expect(sql).to.include("$('email')");
+      consoleDebugStub.restore();
+    });
+  });
+
+  context('format.pretty() with placeholders', () => {
+    it('substitutes values when bindings provided', () => {
+      const sql = format.pretty({
+        select: ['*'],
+        where: [eq, 'id', $]
+      }, [123], 'common');
+
+      expect(sql).to.include('id = 123');
+    });
+
+    it('shows placeholder syntax when no bindings provided', () => {
+      const sql = format.pretty({
+        where: [and, [eq, 'id', $], [eq, 'email', $('email')]]
+      }, undefined, 'common');
+
+      expect(sql).to.include('$(0)');
+      expect(sql).to.include("$('email')");
     });
   });
 });
