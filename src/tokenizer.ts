@@ -69,7 +69,7 @@ export function tokenizeDml(dsl: CommonDml, context?: PlaceholderContext) {
   return tokens;
 }
 
-// Backwards compatibility
+// XXX Deprecated. Use `tokenizeDml` instead.
 export function tokenize(dsl: CommonDml, context?: PlaceholderContext) {
   return tokenizeDml(dsl, context);
 }

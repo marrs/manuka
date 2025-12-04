@@ -1,6 +1,6 @@
 import type { CommonDml, CommonDdl, Atom, CompoundExpr, Expr, Dialect, PlaceholderContext } from './types.ts';
 import { DDL_KEYS } from './types.ts';
-import { tokenize } from './tokenizer.ts';
+import { tokenizeDml } from './tokenizer.ts';
 import { tokenizeDdl } from './ddl-tokenizer.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
@@ -34,16 +34,24 @@ function validateBindings(context: PlaceholderContext, bindings: unknown[] | Rec
   }
 }
 
+function initPlaceholderContext(dialect: Dialect): PlaceholderContext {
+  return {
+    placeholders: [],
+    dialect,
+    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
+  }
+}
+
 // Replace placeholder markers with display format for print/pprint
-function replacePlaceholdersForDisplay(text: string, context: PlaceholderContext, bindings?: unknown[] | Record<string, unknown>): string {
-  if (!bindings) {
+function replacePlaceholdersForDisplay(text: string, context: PlaceholderContext, bindings: unknown[] | Record<string, unknown>): string {
+  if (!bindings.length) {
     // No bindings provided - show placeholder syntax
     return text.replace(/\x00MANUKA_PH_(\d+)\x00/g, (_, indexStr) => {
       const index = parseInt(indexStr, 10);
       const placeholder = context.placeholders[index];
 
       if (typeof placeholder === 'string') {
-        return `$('${placeholder}')`;
+        return `$(${placeholder})`;
       } else {
         return `$(${index})`;
       }
@@ -87,39 +95,6 @@ function isToken(expr: Expr) {
   return false;
 }
 
-function formatExpression(expr: Expr, parentOp?: string): string {
-  // Base case: literals (strings, numbers)
-  if (isToken(expr)) {
-    return stringifyToken(expr as Atom);
-  }
-
-  const [op, ...args] = expr as CompoundExpr;
-
-  // Binary operators
-  const binaryOps = ['=', '<>', '<', '>', '<=', '>=', 'LIKE', 'like'];
-  if (binaryOps.includes(op)) {
-    return `${formatExpression(args[0], op)} ${op} ${formatExpression(args[1], op)}`;
-  }
-
-  // Logical operators
-  if (op === 'and') {
-    const formatted = args.map((arg: Expr) => formatExpression(arg, 'and')).join(' AND ');
-    return formatted;
-  }
-
-  if (op === 'or') {
-    const formatted = args.map((arg: Expr) => formatExpression(arg, 'or')).join(' OR ');
-    // Add parentheses if OR is nested inside AND
-    if (parentOp === 'and') {
-      return `(${formatted})`;
-    }
-    return formatted;
-  }
-
-  // Functions (COUNT, SUM, etc.) - for future use
-  return `${op}(${args.map((arg: Expr) => formatExpression(arg, op)).join(', ')})`;
-}
-
 export function partial(...partials: Partial<CommonDml>[]): (target: Partial<CommonDml>) => Partial<CommonDml> {
   return (target: Partial<CommonDml>) => {
     for (const p of partials) {
@@ -133,78 +108,83 @@ function isDdl(dsl: CommonDml | CommonDdl): dsl is CommonDdl {
   return DDL_KEYS.some(key => key in dsl);
 }
 
-function formatWithSeparator(
+type FormatOptions = {
+  dialect?: Dialect,
+  validateBindings?: boolean,
+};
+
+function formatWithContext(
+  context: PlaceholderContext,
   separator: string,
   dsl: CommonDml | CommonDdl,
-  context?: PlaceholderContext
+  bindings: unknown[] | Record<string, unknown> = [],
+  options: FormatOptions = {
+    dialect: 'common',
+    validateBindings: true,
+  },
 ): string {
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl, context);
-  return separatorFormatter(separator, tokens, context);
-}
-
-function prettyFormat(dsl: CommonDml | CommonDdl, context?: PlaceholderContext): string {
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl, context);
-  return prettyFormatter(tokens, context);
-}
-
-export function format(
-  dsl: CommonDml | CommonDdl,
-  bindings?: unknown[] | Record<string, unknown>,
-  dialect: Dialect = 'common'
-): string {
-  const context: PlaceholderContext = {
-    placeholders: [],
-    dialect,
-    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
-  };
-  const result = formatWithSeparator(' ', dsl, context);
+  const { validateBindings: doValidateBindings } = options;
+  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
+  const result = separatorFormatter(separator, tokens, context);
 
   // Validate bindings if provided
-  if (bindings !== undefined && context.placeholders.length > 0) {
+  if (doValidateBindings && context.placeholders.length > 0) {
     validateBindings(context, bindings);
   }
 
   return result;
 }
 
-format.print = function(
+export function format(
   dsl: CommonDml | CommonDdl,
-  bindings?: unknown[] | Record<string, unknown>,
-  dialect: Dialect = 'common'
+  bindings: unknown[] | Record<string, unknown> = [],
+  {
+    dialect = 'common',
+    validateBindings = true,
+  }: FormatOptions = {}
 ): string {
   const context: PlaceholderContext = {
     placeholders: [],
     dialect,
     formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
   };
-  // For print, we don't pass context to formatter - we handle placeholders ourselves
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl, context);
-  let output = separatorFormatter('\n', tokens); // No context = no replacement yet
+  return formatWithContext(context, ' ', dsl, bindings, {dialect, validateBindings});
+}
 
-  // Replace placeholders for display
-  if (context.placeholders.length > 0) {
-    output = replacePlaceholdersForDisplay(output, context, bindings);
-  }
+format.print = function(
+  dsl: CommonDml | CommonDdl,
+  bindings: unknown[] | Record<string, unknown> = [],
+  {
+    dialect = 'common',
+    validateBindings = false,
+  }: FormatOptions = {}
+): string {
+  let context: PlaceholderContext = initPlaceholderContext(dialect);
+  let result = '';
+  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
+  result = separatorFormatter('\n', tokens);
+  const output = replacePlaceholdersForDisplay(result, context, bindings);
+  console.debug(output, bindings);
 
-  console.debug(output);
-  return output;
+  context = initPlaceholderContext(dialect);
+  result = formatWithContext(context, '\n', dsl, bindings, {dialect, validateBindings});
+  return result;
 };
 
 format.pretty = function(
   dsl: CommonDml | CommonDdl,
-  bindings?: unknown[] | Record<string, unknown>,
-  dialect: Dialect = 'common'
+  bindings: unknown[] | Record<string, unknown> = [],
+  {
+    dialect = 'common',
+    validateBindings: doValidateBindings = true,
+  }: FormatOptions = {}
 ): string {
-  const context: PlaceholderContext = {
-    placeholders: [],
-    dialect,
-    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
-  };
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl, context);
+  const context: PlaceholderContext = initPlaceholderContext(dialect);
+  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
   let result = prettyFormatter(tokens); // No context = no replacement yet
 
   // Validate bindings if provided
-  if (bindings !== undefined && context.placeholders.length > 0) {
+  if (doValidateBindings && bindings.length && context.placeholders.length > 0) {
     validateBindings(context, bindings);
   }
 
@@ -218,22 +198,10 @@ format.pretty = function(
 
 format.pprint = function(
   dsl: CommonDml | CommonDdl,
-  bindings?: unknown[] | Record<string, unknown>,
-  dialect: Dialect = 'common'
+  bindings: unknown[] | Record<string, unknown> = [],
+  options: FormatOptions = {}
 ): string {
-  const context: PlaceholderContext = {
-    placeholders: [],
-    dialect,
-    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
-  };
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenize(dsl, context);
-  let output = prettyFormatter(tokens); // No context = no replacement yet
-
-  // Replace placeholders for display
-  if (context.placeholders.length > 0) {
-    output = replacePlaceholdersForDisplay(output, context, bindings);
-  }
-
+  const output = format.pretty(dsl, bindings ?? [], options);
   console.debug(output);
   return output;
 };

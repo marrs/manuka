@@ -920,6 +920,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/sinon-chai@npm:^4":
+  version: 4.0.0
+  resolution: "@types/sinon-chai@npm:4.0.0"
+  dependencies:
+    "@types/chai": "npm:*"
+    "@types/sinon": "npm:*"
+  checksum: 10c0/9cc2b98ebd9d81cbb6fa234d81cf6d9a0f02af8e777bd19b66baa793455056c105640abc81e5108581f92ebd5753023920e99ee992fbd240e9dd28882bcd1276
+  languageName: node
+  linkType: hard
+
+"@types/sinon@npm:*, @types/sinon@npm:^21.0.0":
+  version: 21.0.0
+  resolution: "@types/sinon@npm:21.0.0"
+  dependencies:
+    "@types/sinonjs__fake-timers": "npm:*"
+  checksum: 10c0/276d610b5f975eba875c207075d031389d9321d407ff2210106301471893e1198fe83798c507b241620f498735806ab729aaca59b51a340d31875e5d61e18d3a
+  languageName: node
+  linkType: hard
+
+"@types/sinonjs__fake-timers@npm:*":
+  version: 15.0.1
+  resolution: "@types/sinonjs__fake-timers@npm:15.0.1"
+  checksum: 10c0/be8daa4e19746f4c249ce4926b83676bb2e5500a8c33b61d81cd303495b56697c28c910f7c57c0ecfd1d7c8ead87449570586d9568b0b5c6fd94c45f116197f4
+  languageName: node
+  linkType: hard
+
 "@types/treeify@npm:^1.0.0":
   version: 1.0.3
   resolution: "@types/treeify@npm:1.0.3"
@@ -1050,6 +1076,8 @@ __metadata:
     "@types/mysql": "npm:^2"
     "@types/node": "npm:^22.13.0"
     "@types/pg": "npm:^8"
+    "@types/sinon": "npm:^21.0.0"
+    "@types/sinon-chai": "npm:^4"
     "@yarnpkg/sdks": "npm:^3.2.3"
     chai: "npm:^5.1.2"
     chai-string: "npm:^1.6.0"
@@ -1059,6 +1087,7 @@ __metadata:
     pg: "npm:^8.16.3"
     postgres: "npm:^3.4.7"
     sinon: "npm:^21.0.0"
+    sinon-chai: "npm:^4.0.1"
     sqlite: "npm:^5.1.1"
     ts-node: "npm:^10.9.2"
     tsup: "npm:^8.5.0"
@@ -3339,6 +3368,16 @@ __metadata:
   version: 4.1.0
   resolution: "signal-exit@npm:4.1.0"
   checksum: 10c0/41602dce540e46d599edba9d9860193398d135f7ff72cab629db5171516cfae628d21e7bfccde1bbfdf11c48726bc2a6d1a8fb8701125852fbfda7cf19c6aa83
+  languageName: node
+  linkType: hard
+
+"sinon-chai@npm:^4.0.1":
+  version: 4.0.1
+  resolution: "sinon-chai@npm:4.0.1"
+  peerDependencies:
+    chai: ^5.0.0 || ^6.0.0
+    sinon: ">=4.0.0"
+  checksum: 10c0/3d49a66151143f05636b732d4cb3ed078703dac19c8f32dd422c6b207a5eeb8f3208fe770853cb01f183190af79cdc8b83ccd07ef85c3d1b932222cd2c18fcd3
   languageName: node
   linkType: hard
 

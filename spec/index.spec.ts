@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { format, partial, validate, $ } from '../src/index.ts';
 import {
+  all,
   integer,
   and, or, eq, ne, lt, gt, gte
 } from '../src/vocabulary.ts';
@@ -222,7 +223,7 @@ describe('placeholders', () => {
         select: ['*'],
         from: ['users'],
         where: [eq, 'id', $]
-      }, [123], 'common');
+      }, [123], {dialect: 'common'});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = ?');
     });
@@ -232,7 +233,7 @@ describe('placeholders', () => {
         select: ['*'],
         from: ['users'],
         where: [and, [eq, 'id', $], [eq, 'status', $]]
-      }, [123, 'active'], 'pg');
+      }, [123, 'active'], {dialect: 'pg'});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = $1 AND status = $2');
     });
@@ -242,7 +243,7 @@ describe('placeholders', () => {
         select: ['*'],
         from: ['users'],
         where: [eq, 'email', $('email')]
-      }, { email: 'test@example.com' }, 'common');
+      }, { email: 'test@example.com' }, {dialect: 'common'});
 
       expect(sql).to.equal('SELECT * FROM users WHERE email = ?');
     });
@@ -263,10 +264,10 @@ describe('placeholders', () => {
       }).to.throw(/email/i);
     });
 
-    it('works without bindings parameter (no validation)', () => {
+    it('optionally disables validation of bindings against parameters', () => {
       const sql = format({
         where: [eq, 'id', $]
-      }, undefined, 'common');
+      }, [], {validateBindings: false});
 
       expect(sql).to.equal('WHERE id = ?');
     });
@@ -276,44 +277,67 @@ describe('placeholders', () => {
         insertInto: 'users',
         columns: ['id', 'name', 'email'],
         values: [[$, $, $]]
-      }, [1, 'John', 'john@example.com'], 'common');
+      }, [1, 'John', 'john@example.com'], {dialect: 'common'});
 
       expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
     });
   });
 
   context('format.print() with placeholders', () => {
-    it('substitutes values when bindings provided', () => {
+    it('substitutes values in logged output when bindings provided', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       const sql = format.print({
         where: [eq, 'id', $]
-      }, [123], 'common');
+      }, [123], {dialect: 'common'});
 
-      expect(sql).to.include('id = 123');
+      expect(sql).to.include('id = ?');
       consoleDebugStub.restore();
     });
 
-    it('shows placeholder syntax when no bindings provided', () => {
+    it('substitutes values in logged output when bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [eq, 'id', $]
+      }, [123], {dialect: 'common'});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+      consoleDebugStub.restore();
+    });
+
+    it('shows placeholder syntax in logged output when no bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [and, [eq, 'id', $], [eq, 'status', $]]
+      }, [], {dialect: 'common'});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = $(0)');
+      expect(consoleDebugStub).to.have.been.calledWithMatch('status = $(1)');
+      consoleDebugStub.restore();
+    });
+
+    it('returns prepared statement when no bindings provided', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       const sql = format.print({
         where: [and, [eq, 'id', $], [eq, 'status', $]]
-      }, undefined, 'common');
+      }, [], {dialect: 'common'});
 
-      expect(sql).to.include('$(0)');
-      expect(sql).to.include('$(1)');
+      expect(sql).to.match(/id = \?/);
+      expect(sql).to.match(/status = \?/);
       consoleDebugStub.restore();
     });
 
-    it('shows named placeholder syntax for named placeholders', () => {
+    it('shows named placeholder syntax in logged output for named placeholders', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
-      const sql = format.print({
+      format.print({
         where: [eq, 'email', $('email')]
-      }, undefined, 'common');
+      }, [], {dialect: 'common'});
 
-      expect(sql).to.include("$('email')");
+      expect(consoleDebugStub).to.have.been.calledWithMatch('email = $(email)');
       consoleDebugStub.restore();
     });
   });
@@ -321,9 +345,9 @@ describe('placeholders', () => {
   context('format.pretty() with placeholders', () => {
     it('substitutes values when bindings provided', () => {
       const sql = format.pretty({
-        select: ['*'],
+        select: [all],
         where: [eq, 'id', $]
-      }, [123], 'common');
+      }, [123], {dialect: 'common'});
 
       expect(sql).to.include('id = 123');
     });
@@ -331,10 +355,10 @@ describe('placeholders', () => {
     it('shows placeholder syntax when no bindings provided', () => {
       const sql = format.pretty({
         where: [and, [eq, 'id', $], [eq, 'email', $('email')]]
-      }, undefined, 'common');
+      })
 
       expect(sql).to.include('$(0)');
-      expect(sql).to.include("$('email')");
+      expect(sql).to.include("$(email)");
     });
   });
 });
