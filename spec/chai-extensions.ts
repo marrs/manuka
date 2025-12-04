@@ -1,8 +1,9 @@
 import * as chai from 'chai';
 import chaiString from 'chai-string';
+import sinonChai from 'sinon-chai';
 
-// Register chai-string plugin
 chai.use(chaiString);
+chai.use(sinonChai);
 
 declare global {
   namespace Chai {
