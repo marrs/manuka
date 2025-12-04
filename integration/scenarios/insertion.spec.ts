@@ -28,7 +28,7 @@ describe('insertion', () => {
     // Test complex nested expression with operator precedence:
     // price = (base * markup) + shipping - discount
     // sku = category || '-' || id
-    const insertSql = format({
+    const [insertSql] = format({
       insertInto: 'products',
       columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
       values: [
@@ -39,7 +39,7 @@ describe('insertion', () => {
     await db.execute(insertSql);
 
     // Verify complex calculation: (100 * 1.2) + 10 - 5 = 125
-    const selectSql = format({
+    const [selectSql] = format({
       select: ['id', 'sku', 'price'],
       from: ['products'],
       where: [eq, 'category_id', 1]

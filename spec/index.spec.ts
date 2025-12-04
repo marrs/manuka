@@ -10,21 +10,25 @@ import {
 describe('format', () => {
   context('select', () => {
     it('returns an empty select expression if no column names are provided.', () => {
-      expect(format({select: []})).to.eql("SELECT ");
+      const [sql] = format({select: []});
+      expect(sql).to.eql("SELECT ");
     });
 
     it('returns a select expression for the given column names.', () => {
-      expect(format({select: ['a', 'b']})).to.eql("SELECT a, b");
+      const [sql] = format({select: ['a', 'b']});
+      expect(sql).to.eql("SELECT a, b");
     });
   });
 
   context('from', () => {
     it('returns a from expression for a single table.', () => {
-      expect(format({select: ['*'], from: ['users']})).to.eql("SELECT * FROM users");
+      const [sql] = format({select: ['*'], from: ['users']});
+      expect(sql).to.eql("SELECT * FROM users");
     });
 
     it('returns a from expression for multiple tables.', () => {
-      expect(format({select: ['*'], from: ['users', 'orders']})).to.eql("SELECT * FROM users, orders");
+      const [sql] = format({select: ['*'], from: ['users', 'orders']});
+      expect(sql).to.eql("SELECT * FROM users, orders");
     });
 
   });
@@ -33,41 +37,47 @@ describe('format', () => {
     const selectFromUsers = partial({ select: ['*'], from: ['users'] });
 
     it('formats a simple equality condition.', () => {
-      expect(format(selectFromUsers({
+      const [sql] = format(selectFromUsers({
         where: [eq, 'id', '1']
-      }))).to.eql("SELECT * FROM users WHERE id = 1");
+      }));
+      expect(sql).to.eql("SELECT * FROM users WHERE id = 1");
     });
 
     it('formats a not-equal condition.', () => {
-      expect(format(selectFromUsers({
+      const [sql] = format(selectFromUsers({
         where: [ne, 'status', 'inactive']
-      }))).to.eql("SELECT * FROM users WHERE status <> inactive");
+      }));
+      expect(sql).to.eql("SELECT * FROM users WHERE status <> inactive");
     });
 
     it('formats an AND condition with multiple predicates.', () => {
-      expect(format(selectFromUsers({
+      const [sql] = format(selectFromUsers({
         where: [and, [eq, 'active', 'true'], [gt, 'age', '18']]
-      }))).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
+      }));
+      expect(sql).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
     });
 
     it('formats an OR condition with multiple predicates.', () => {
-      expect(format(selectFromUsers({
+      const [sql] = format(selectFromUsers({
         where: [or, [eq, 'role', 'admin'], [eq, 'role', 'moderator']]
-      }))).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
+      }));
+      expect(sql).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
     });
 
     it('formats nested logical operators.', () => {
-      expect(format(selectFromUsers({
+      const [sql] = format(selectFromUsers({
         where: [and, [eq, 'active', 'true'], [or, [eq, 'role', 'admin'], [eq, 'role', 'mod']]]
-      }))).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
+      }));
+      expect(sql).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
     });
 
     it('formats the README example.', () => {
-      expect(format({
+      const [sql] = format({
         select: ['a', 'b', 'c'],
         from: ['t1'],
         where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
-      })).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
+      });
+      expect(sql).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
     });
   });
 });
@@ -76,12 +86,12 @@ describe('format.print', () => {
   it('formats with newlines and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
-    const result = format.print({
+    const [sql] = format.print({
       select: ['*'],
       from: ['users']
     });
 
-    expect(result).to.eql("SELECT *\nFROM users");
+    expect(sql).to.eql("SELECT *\nFROM users");
     expect(consoleDebugSpy.calledOnce).to.be.true;
     expect(consoleDebugSpy.calledWith("SELECT *\nFROM users")).to.be.true;
 
@@ -91,12 +101,12 @@ describe('format.print', () => {
   it('returns the formatted output.', () => {
     const consoleDebugStub = sinon.stub(console, 'debug');
 
-    const result = format.print({
+    const [sql] = format.print({
       select: ['a', 'b'],
       from: ['t1']
     });
 
-    expect(result).to.eql("SELECT a, b\nFROM t1");
+    expect(sql).to.eql("SELECT a, b\nFROM t1");
 
     consoleDebugStub.restore();
   });
@@ -104,19 +114,21 @@ describe('format.print', () => {
 
 describe('format.pretty', () => {
   it('prettifies with right-aligned keywords.', () => {
-    expect(format.pretty({
+    const [sql] = format.pretty({
       select: ['*'],
       from: ['users'],
       orderBy: 'id',
-    })).to.eql("  SELECT *\n    FROM users\nORDER BY id");
+    });
+    expect(sql).to.eql("  SELECT *\n    FROM users\nORDER BY id");
   });
 
   it('formats a complete query with right-aligned keywords and operators.', () => {
-    expect(format.pretty({
+    const [sql] = format.pretty({
       select: ['a', 'b', 'c'],
       from: ['t1'],
       where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
-    })).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
+    });
+    expect(sql).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
   });
 });
 
@@ -126,11 +138,11 @@ describe('format.pprint', () => {
   it('formats with pretty alignment and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
-    const result = format.pprint(selectFromUsers({
+    const [sql] = format.pprint(selectFromUsers({
       where: [eq, 'id', '1']
     }));
 
-    expect(result).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
+    expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
     expect(consoleDebugSpy.calledOnce).to.be.true;
     expect(consoleDebugSpy.calledWith("SELECT *\n  FROM users\n WHERE id = 1")).to.be.true;
 
@@ -140,12 +152,12 @@ describe('format.pprint', () => {
   it('returns the formatted output.', () => {
     const consoleDebugStub = sinon.stub(console, 'debug');
 
-    const result = format.pprint({
+    const [sql] = format.pprint({
       select: ['a', 'b'],
       from: ['t1']
     });
 
-    expect(result).to.eql("SELECT a, b\n  FROM t1");
+    expect(sql).to.eql("SELECT a, b\n  FROM t1");
 
     consoleDebugStub.restore();
   });
@@ -153,65 +165,70 @@ describe('format.pprint', () => {
 
 describe('format with unified DML/DDL API', () => {
   it('handles DML queries', () => {
-    expect(format({ select: ['*'], from: ['users'] })).to.eql("SELECT * FROM users");
+    const [sql] = format({ select: ['*'], from: ['users'] });
+    expect(sql).to.eql("SELECT * FROM users");
   });
 
   it('handles DDL statements', () => {
-    expect(format({
+    const [sql] = format({
       createTable: 'users',
       withColumns: [['id', integer]]
-    })).to.eql("CREATE TABLE users (id INTEGER)");
+    });
+    expect(sql).to.eql("CREATE TABLE users (id INTEGER)");
   });
 });
 
 describe('insert', () => {
   it('formats basic INSERT statement', () => {
-    expect(format({
+    const [sql] = format({
       insertInto: 'users',
       values: [[1, 'John', 'john@example.com']]
-    })).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
+    });
+    expect(sql).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
   });
 
   it('formats INSERT with column list and multi-row', () => {
-    expect(format({
+    const [sql] = format({
       insertInto: 'users',
       columns: ['id', 'name'],
       values: [[1, 'John'], [2, 'Jane']]
-    })).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
+    });
+    expect(sql).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
   });
 
   it('formats INSERT with expressions and operator precedence', () => {
-    expect(format({
+    const [sql] = format({
       insertInto: 'calc',
       values: [[['*', ['+', 2, 3], 4]]]
-    })).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
+    });
+    expect(sql).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
   });
 
   context('insert with formatters', () => {
     it('format.print() outputs INSERT with newlines', () => {
-      const result = format.print({
+      const [sql] = format.print({
         insertInto: 'users',
         columns: ['id', 'name'],
         values: [[1, 'John']]
       });
-      expect(result).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
+      expect(sql).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
     });
 
     it('format.pretty() outputs INSERT with right-aligned keywords', () => {
-      const result = format.pretty({
+      const [sql] = format.pretty({
         insertInto: 'users',
         columns: ['id', 'name'],
         values: [[1, 'John']]
       });
-      expect(result).to.eql("INSERT INTO users (id, name)\n     VALUES (1, 'John')");
+      expect(sql).to.eql("INSERT INTO users (id, name)\n     VALUES (1, 'John')");
     });
 
     it('format.pretty() handles multi-row INSERT', () => {
-      const result = format.pretty({
+      const [sql] = format.pretty({
         insertInto: 'users',
         values: [[1, 'John'], [2, 'Jane']]
       });
-      expect(result).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
+      expect(sql).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
     });
   });
 });
@@ -219,40 +236,43 @@ describe('insert', () => {
 describe('placeholders', () => {
   context('format() with placeholders', () => {
     it('generates query with ? placeholders for common dialect', () => {
-      const sql = format({
+      const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
         where: [eq, 'id', $]
-      }, [123], {dialect: 'common'});
+      }, {dialect: 'common', params: [123]});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = ?');
+      expect(bindings).to.deep.equal([123]);
     });
 
     it('generates query with $1, $2 placeholders for pg dialect', () => {
-      const sql = format({
+      const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
         where: [and, [eq, 'id', $], [eq, 'status', $]]
-      }, [123, 'active'], {dialect: 'pg'});
+      }, {dialect: 'pg', params: [123, 'active']});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = $1 AND status = $2');
+      expect(bindings).to.deep.equal([123, 'active']);
     });
 
     it('handles named placeholders with object bindings', () => {
-      const sql = format({
+      const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
         where: [eq, 'email', $('email')]
-      }, { email: 'test@example.com' }, {dialect: 'common'});
+      }, {dialect: 'common', params: { email: 'test@example.com' }});
 
       expect(sql).to.equal('SELECT * FROM users WHERE email = ?');
+      expect(bindings).to.deep.equal(['test@example.com']);
     });
 
     it('validates positional binding count matches placeholder count', () => {
       expect(() => {
         format({
           where: [and, [eq, 'id', $], [eq, 'status', $]]
-        }, [123]); // Only 1 binding for 2 placeholders
+        }, {params: [123]}); // Only 1 binding for 2 placeholders
       }).to.throw(/parameter/i);
     });
 
@@ -260,26 +280,27 @@ describe('placeholders', () => {
       expect(() => {
         format({
           where: [eq, 'email', $('email')]
-        }, { wrongKey: 'test@example.com' });
+        }, {params: { wrongKey: 'test@example.com' }});
       }).to.throw(/email/i);
     });
 
     it('optionally disables validation of bindings against parameters', () => {
-      const sql = format({
+      const [sql] = format({
         where: [eq, 'id', $]
-      }, [], {validateBindings: false});
+      }, {validateBindings: false, params: []});
 
       expect(sql).to.equal('WHERE id = ?');
     });
 
     it('handles placeholders in INSERT VALUES', () => {
-      const sql = format({
+      const [sql, ...bindings] = format({
         insertInto: 'users',
         columns: ['id', 'name', 'email'],
         values: [[$, $, $]]
-      }, [1, 'John', 'john@example.com'], {dialect: 'common'});
+      }, {dialect: 'common', params: [1, 'John', 'john@example.com']});
 
       expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
+      expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
     });
   });
 
@@ -287,9 +308,9 @@ describe('placeholders', () => {
     it('substitutes values in logged output when bindings provided', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
-      const sql = format.print({
+      const [sql] = format.print({
         where: [eq, 'id', $]
-      }, [123], {dialect: 'common'});
+      }, {dialect: 'common', params: [123]});
 
       expect(sql).to.include('id = ?');
       consoleDebugStub.restore();
@@ -300,7 +321,7 @@ describe('placeholders', () => {
 
       format.print({
         where: [eq, 'id', $]
-      }, [123], {dialect: 'common'});
+      }, {dialect: 'common', params: [123]});
 
       expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
       consoleDebugStub.restore();
@@ -311,7 +332,7 @@ describe('placeholders', () => {
 
       format.print({
         where: [and, [eq, 'id', $], [eq, 'status', $]]
-      }, [], {dialect: 'common'});
+      }, {dialect: 'common', params: []});
 
       expect(consoleDebugStub).to.have.been.calledWithMatch('id = $(0)');
       expect(consoleDebugStub).to.have.been.calledWithMatch('status = $(1)');
@@ -321,9 +342,9 @@ describe('placeholders', () => {
     it('returns prepared statement when no bindings provided', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
-      const sql = format.print({
+      const [sql] = format.print({
         where: [and, [eq, 'id', $], [eq, 'status', $]]
-      }, [], {dialect: 'common'});
+      }, {dialect: 'common', params: []});
 
       expect(sql).to.match(/id = \?/);
       expect(sql).to.match(/status = \?/);
@@ -335,7 +356,7 @@ describe('placeholders', () => {
 
       format.print({
         where: [eq, 'email', $('email')]
-      }, [], {dialect: 'common'});
+      }, {dialect: 'common', params: []});
 
       expect(consoleDebugStub).to.have.been.calledWithMatch('email = $(email)');
       consoleDebugStub.restore();
@@ -344,18 +365,18 @@ describe('placeholders', () => {
 
   context('format.pretty() with placeholders', () => {
     it('substitutes values when bindings provided', () => {
-      const sql = format.pretty({
+      const [sql] = format.pretty({
         select: [all],
         where: [eq, 'id', $]
-      }, [123], {dialect: 'common'});
+      }, {dialect: 'common', params: [123]});
 
       expect(sql).to.include('id = 123');
     });
 
     it('shows placeholder syntax when no bindings provided', () => {
-      const sql = format.pretty({
+      const [sql] = format.pretty({
         where: [and, [eq, 'id', $], [eq, 'email', $('email')]]
-      })
+      });
 
       expect(sql).to.include('$(0)');
       expect(sql).to.include("$(email)");

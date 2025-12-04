@@ -12,14 +12,14 @@ export async function createAccount(
   const db = getDb();
   const { id, email, username } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'users',
     columns: ['id', 'email', 'username', 'password_hash', 'created_at', 'updated_at', 'is_active'],
     values: [[id, email, username, 'hash', 1234567890, 1234567890, 1]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['email', 'username'],
     from: ['users'],
     where: [eq, 'id', id]
@@ -42,14 +42,14 @@ export async function addCategory(
   const db = getDb();
   const { id, name, slug, parentId = null } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'categories',
     columns: ['id', 'parent_id', 'name', 'slug', 'description'],
     values: [[id, parentId, name, slug, `${name} category`]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['name', 'slug'],
     from: ['categories'],
     where: [eq, 'id', id]
@@ -72,14 +72,14 @@ export async function addProductWithCalculatedPrice(
   const db = getDb();
   const { id, basePrice, markup } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'products',
     columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
     values: [[id, 1, `PROD-${id}`, 'Product', [add, basePrice, markup], 1234567890]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['price'],
     from: ['products'],
     where: [eq, 'id', id]
@@ -103,14 +103,14 @@ export async function addProductWithGeneratedSKU(
   const db = getDb();
   const { id, categoryPrefix, productId } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'products',
     columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
     values: [[id, 1, [cat, [cat, categoryPrefix, '-'], productId], 'Monitor', 299.99, 1234567890]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['sku'],
     from: ['products'],
     where: [eq, 'id', id]
@@ -134,14 +134,14 @@ export async function batchAddProducts(
   const db = getDb();
 
   const values = products.map(p => [p.id, 1, p.sku, p.name, [p.operation, p.operandA, p.operandB], 1234567890]);
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'products',
     columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
     values
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['id', 'price'],
     from: ['products'],
     where: [eq, 'category_id', 1]
@@ -174,14 +174,14 @@ export async function createOrderWithCalculatedTotals(
   const db = getDb();
   const { id, subtotal, tax, shipping } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'orders',
     columns: ['id', 'user_id', 'order_number', 'status', 'subtotal', 'tax', 'shipping', 'total', 'created_at'],
     values: [[id, 1, `ORD-${String(id).padStart(3, '0')}`, 'pending', subtotal, tax, shipping, [add, [add, subtotal, tax], shipping], 1234567890]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['subtotal', 'tax', 'shipping', 'total'],
     from: ['orders'],
     where: [eq, 'id', id]
@@ -206,14 +206,14 @@ export async function addOrderItemWithQuantityPricing(
   const db = getDb();
   const { id, orderId, productId, quantity, unitPrice } = params;
 
-  const insertSql = format({
+  const [insertSql] = format({
     insertInto: 'order_items',
     columns: ['id', 'order_id', 'product_id', 'quantity', 'unit_price', 'subtotal'],
     values: [[id, orderId, productId, quantity, unitPrice, [mul, quantity, unitPrice]]]
   });
   await db.execute(insertSql);
 
-  const selectSql = format({
+  const [selectSql] = format({
     select: ['quantity', 'unit_price', 'subtotal'],
     from: ['order_items'],
     where: [eq, 'id', id]

@@ -111,6 +111,7 @@ function isDdl(dsl: CommonDml | CommonDdl): dsl is CommonDdl {
 type FormatOptions = {
   dialect?: Dialect,
   validateBindings?: boolean,
+  params?: Record<string, unknown> | unknown[],
 };
 
 function formatWithContext(
@@ -137,71 +138,105 @@ function formatWithContext(
 
 export function format(
   dsl: CommonDml | CommonDdl,
-  bindings: unknown[] | Record<string, unknown> = [],
   {
     dialect = 'common',
     validateBindings = true,
+    params = [],
   }: FormatOptions = {}
-): string {
+): [string, ...unknown[]] {
   const context: PlaceholderContext = {
     placeholders: [],
     dialect,
     formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
   };
-  return formatWithContext(context, ' ', dsl, bindings, {dialect, validateBindings});
+  const sql = formatWithContext(context, ' ', dsl, params, {dialect, validateBindings});
+
+  // Extract bindings from params based on placeholder order
+  const bindings: unknown[] = [];
+  for (const placeholder of context.placeholders) {
+    if (typeof placeholder === 'string') {
+      // Named placeholder - lookup in params object
+      bindings.push((params as Record<string, unknown>)[placeholder]);
+    } else {
+      // Positional placeholder - use params array
+      bindings.push((params as unknown[])[placeholder]);
+    }
+  }
+
+  return [sql, ...bindings];
 }
 
 format.print = function(
   dsl: CommonDml | CommonDdl,
-  bindings: unknown[] | Record<string, unknown> = [],
   {
     dialect = 'common',
     validateBindings = false,
+    params = [],
   }: FormatOptions = {}
-): string {
+): [string, ...unknown[]] {
   let context: PlaceholderContext = initPlaceholderContext(dialect);
   let result = '';
   const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
   result = separatorFormatter('\n', tokens);
-  const output = replacePlaceholdersForDisplay(result, context, bindings);
+  const output = replacePlaceholdersForDisplay(result, context, params);
+
+  // Extract bindings from params for logging
+  const bindings: unknown[] = [];
+  for (const placeholder of context.placeholders) {
+    if (typeof placeholder === 'string') {
+      bindings.push((params as Record<string, unknown>)[placeholder]);
+    } else {
+      bindings.push((params as unknown[])[placeholder]);
+    }
+  }
+
   console.debug(output, bindings);
 
   context = initPlaceholderContext(dialect);
-  result = formatWithContext(context, '\n', dsl, bindings, {dialect, validateBindings});
-  return result;
+  result = formatWithContext(context, '\n', dsl, params, {dialect, validateBindings});
+  return [result, ...bindings];
 };
 
 format.pretty = function(
   dsl: CommonDml | CommonDdl,
-  bindings: unknown[] | Record<string, unknown> = [],
   {
     dialect = 'common',
     validateBindings: doValidateBindings = true,
+    params = [],
   }: FormatOptions = {}
-): string {
+): [string, ...unknown[]] {
   const context: PlaceholderContext = initPlaceholderContext(dialect);
   const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
   let result = prettyFormatter(tokens); // No context = no replacement yet
 
+  // Extract bindings from params
+  const bindings: unknown[] = [];
+  for (const placeholder of context.placeholders) {
+    if (typeof placeholder === 'string') {
+      bindings.push((params as Record<string, unknown>)[placeholder]);
+    } else {
+      bindings.push((params as unknown[])[placeholder]);
+    }
+  }
+
   // Validate bindings if provided
-  if (doValidateBindings && bindings.length && context.placeholders.length > 0) {
-    validateBindings(context, bindings);
+  if (doValidateBindings && params && (params as unknown[]).length > 0 && context.placeholders.length > 0) {
+    validateBindings(context, params);
   }
 
   // Replace placeholders for display
   if (context.placeholders.length > 0) {
-    return replacePlaceholdersForDisplay(result, context, bindings);
+    return [replacePlaceholdersForDisplay(result, context, params), ...bindings];
   }
 
-  return result;
+  return [result, ...bindings];
 };
 
 format.pprint = function(
   dsl: CommonDml | CommonDdl,
-  bindings: unknown[] | Record<string, unknown> = [],
   options: FormatOptions = {}
-): string {
-  const output = format.pretty(dsl, bindings ?? [], options);
-  console.debug(output);
-  return output;
+): [string, ...unknown[]] {
+  const result = format.pretty(dsl, options);
+  console.debug(result[0]);
+  return result;
 };
