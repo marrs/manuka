@@ -59,13 +59,13 @@ export async function closeDb(): Promise<void> {
  */
 export async function executeDdl(ddl: CommonDdl, description?: string): Promise<void> {
   const connection = getDb();
-  const sql = format(ddl);
+  const [sql, ...args] = format(ddl);
 
   try {
     console.log(`🔨 ${description || 'Executing DDL'}...`);
     console.log(`   SQL: ${sql.substring(0, 80)}${sql.length > 80 ? '...' : ''}`);
 
-    await connection.execute(sql);
+    await connection.execute({sql, args});
     console.log(`✅ Success`);
   } catch (error) {
     console.error(`❌ Failed to execute DDL`);

@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { format } from '../../src/index.ts';
+import { format, $ } from '../../src/index.ts';
 import { add, sub, mul, cat, eq } from '../../src/vocabulary.ts';
 import { setupTestDatabase, getDb, closeDb } from '../sqlite/util.ts';
 import { createAccount, addCategory } from '../common/seed-db.ts';
@@ -25,18 +25,32 @@ describe('insertion', () => {
   it('inserts rows with complex arithmetic expressions', async () => {
     const db = getDb();
 
+    const date = 1234567890;
+    const productData = [
+      {skuCategory: 'ELEC', categoryId: 1, name: 'Laptop', price: {
+        unit: 1.2, qty: 100, fee: 10, discount: 5,
+      }, date},
+      {skuCategory: 'ELEC', categoryId: 1, name: 'Mouse', price: {
+        unit: 2, qty: 20, fee: 0, discount: 0,
+      }, date},
+    ];
+
     // Test complex nested expression with operator precedence:
     // price = (base * markup) + shipping - discount
     // sku = category || '-' || id
-    const [insertSql] = format({
+    const [sql, ...args] = format.pprint({
       insertInto: 'products',
       columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
-      values: [
-        [1, 1, [cat, [cat, 'ELEC', '-'], '001'], 'Laptop', [sub, [add, [mul, 100, 1.2], 10], 5], 1234567890],
-        [2, 1, [cat, [cat, 'ELEC', '-'], '002'], 'Mouse', [mul, 20, 2], 1234567890]
-      ]
+      values: productData.map(({categoryId, skuCategory, name, price, date}, idx): any => {
+        const id = idx + 1;
+        const skuId = `00${id}`;
+        return [
+          id, categoryId, [cat, [cat, $(skuCategory), '-'], $(skuId)],
+          $(name), [sub, [add, [mul, price.qty, price.unit], price.fee], price.discount], $(date),
+        ]
+      }),
     });
-    await db.execute(insertSql);
+    await db.execute({sql, args});
 
     // Verify complex calculation: (100 * 1.2) + 10 - 5 = 125
     const [selectSql] = format({
