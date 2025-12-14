@@ -1,18 +1,29 @@
-import type { CommonDml, CommonDdl, Atom, CompoundExpr, Expr, Dialect, PlaceholderContext } from './types.ts';
+import type {
+  CommonDml,
+  CommonDdl,
+  Expr,
+  Dialect,
+  PlaceholderContext,
+  PlaceholderDirectFn,
+  PlaceholderDirect,
+  PlaceholderNamed,
+  SqlValue,
+} from './types.ts';
 import { DDL_KEYS } from './types.ts';
 import { tokenizeDml } from './tokenizer.ts';
 import { tokenizeDdl } from './ddl-tokenizer.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
-import type { PlaceholderNamed } from './vocabulary.ts';  // FIXME: Move to ./types.ts
-
-// Re-export $ from vocabulary
-export { $ } from './vocabulary.ts';
-
 // Placeholder formatters for different dialects
 const PLACEHOLDER_FORMATTERS = {
   common: (_index: number) => '?',
   pg: (index: number) => `$${index + 1}`
+};
+//
+// Placeholder function for direct value binding
+// Usage: $(123), $('active'), $(null), $(true), etc.
+export const $: PlaceholderDirectFn = function(value: SqlValue): PlaceholderDirect {
+  return { __placeholder: true, value };
 };
 
 // Validate bindings match placeholders

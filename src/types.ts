@@ -1,21 +1,26 @@
+// SQL value types (primitive values that can be used in SQL)
+export type SqlValue = string | number | boolean | null | undefined;
+
 // Placeholder types for prepared statements
 export type PlaceholderNamed = { __placeholder: true; key: string | number };
-export type PlaceholderDirect = { __placeholder: true; value: unknown };
+export type PlaceholderDirect = { __placeholder: true; value: SqlValue };
 
 export type PlaceholderFn = {
   (key: string): PlaceholderNamed;
   __isPlaceholder: true;
 };
 
+export type PlaceholderDirectFn = (value: SqlValue) => PlaceholderDirect;
+
 export type Placeholder = PlaceholderFn | PlaceholderNamed | PlaceholderDirect;
 
 // Unified type for tracking placeholders in context
 export type PlaceholderEntry =
-  | { type: 'direct'; value: unknown }
+  | { type: 'direct'; value: SqlValue }
   | { type: 'named'; key: string | number };
 
 // Atom values (including placeholders)
-export type Atom = string | number | null | Placeholder;
+export type Atom = SqlValue | Placeholder;
 
 // Comparison expressions: operator, field name, value
 export type ComparisonOp = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'LIKE';
