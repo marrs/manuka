@@ -41,17 +41,12 @@ export const unique = 'unique';
 
 // Placeholder types
 export type PlaceholderNamed = { __placeholder: true; key: string | number };
+export type PlaceholderDirect = { __placeholder: true; value: unknown };
 
-type PlaceholderFn = {
-  (key: string): PlaceholderNamed;
-  __isPlaceholder: true;
+type PlaceholderDirectFn = (value: unknown) => PlaceholderDirect;
+
+// Placeholder function for direct value binding
+// Usage: $(123), $('active'), $(null), etc.
+export const $: PlaceholderDirectFn = function(value: unknown): PlaceholderDirect {
+  return { __placeholder: true, value };
 };
-
-// Placeholder function for prepared statements
-// Usage: $ (positional) or $('key') (named)
-export const $: PlaceholderFn = Object.assign(
-  function(key: string): PlaceholderNamed {
-    return { __placeholder: true, key };
-  },
-  { __isPlaceholder: true as const }
-);

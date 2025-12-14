@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { format, partial, param } from '../src/index.ts';
+import { format, partial, param, $ } from '../src/index.ts';
 import {
   all,
   integer,
@@ -383,5 +383,125 @@ describe('placeholders for params option', () => {
       expect(sql).to.include('param(0)');
       expect(sql).to.include("param(email)");
     });
+  });
+});
+
+describe('placeholders for direct parameter binding', () => {
+  context('format() with placeholders', () => {
+    it('generates query with ? placeholders for common dialect', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: [eq, 'id', $(123)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal('SELECT * FROM users WHERE id = ?');
+      expect(bindings).to.deep.equal([123]);
+    });
+
+    it('generates query with $1, $2 placeholders for pg dialect', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: [and, [eq, 'id', $(123)], [eq, 'status', $('active')]]
+      }, {dialect: 'pg'});
+
+      expect(sql).to.equal('SELECT * FROM users WHERE id = $1 AND status = $2');
+      expect(bindings).to.deep.equal([123, 'active']);
+    });
+
+    it('handles placeholders in INSERT VALUES', () => {
+      const [sql, ...bindings] = format({
+        insertInto: 'users',
+        columns: ['id', 'name', 'email'],
+        values: [[$(1), $('John'), $('john@example.com')]]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
+      expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
+    });
+
+    it('handles null value in direct placeholder', () => {
+      const [sql, ...bindings] = format({
+        where: [eq, 'status', $(null)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal('WHERE status = ?');
+      expect(bindings).to.deep.equal([null]);
+    });
+
+    it('handles undefined value in direct placeholder', () => {
+      const [sql, ...bindings] = format({
+        where: [eq, 'field', $(undefined)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal('WHERE field = ?');
+      expect(bindings).to.deep.equal([undefined]);
+    });
+
+    it('handles boolean true value in direct placeholder', () => {
+      const [sql, ...bindings] = format({
+        where: [eq, 'active', $(true)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal('WHERE active = ?');
+      expect(bindings).to.deep.equal([true]);
+    });
+
+    it('handles boolean false value in direct placeholder', () => {
+      const [sql, ...bindings] = format({
+        where: [eq, 'active', $(false)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.equal('WHERE active = ?');
+      expect(bindings).to.deep.equal([false]);
+    });
+  });
+});
+
+describe('mixed param and direct placeholder', () => {
+  it('handles placeholders in INSERT VALUES', () => {
+    const [sql, ...bindings] = format({
+      insertInto: 'users',
+      columns: ['id', 'name', 'email'],
+      values: [[$(1), $('John'), param('email')]]
+    }, {dialect: 'common', params: {email: 'john@example.com'}});
+
+    expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
+    expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
+  });
+});
+
+describe('direct placeholders - display behavior', () => {
+  it('shows direct placeholder values in print() logged output', () => {
+    const consoleDebugStub = sinon.stub(console, 'debug');
+
+    format.print({
+      where: [eq, 'id', $(123)]
+    }, {dialect: 'common'});
+
+    expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+    consoleDebugStub.restore();
+  });
+
+  it('distinguishes between $(value) and param(key) in print() display', () => {
+    const consoleDebugStub = sinon.stub(console, 'debug');
+
+    format.print({
+      where: [and, [eq, 'id', $(123)], [eq, 'email', param('email')]]
+    }, {dialect: 'common', params: {}});
+
+    // Should show: id = 123 AND email = param(email)
+    expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+    expect(consoleDebugStub).to.have.been.calledWithMatch('email = param(email)');
+    consoleDebugStub.restore();
+  });
+
+  it('substitutes direct placeholder values in pretty format', () => {
+    const [sql] = format.pretty({
+      where: [eq, 'id', $(123)]
+    }, {dialect: 'common'});
+
+    expect(sql).to.include('id = 123');
   });
 });

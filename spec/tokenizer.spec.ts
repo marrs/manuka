@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { tokenize } from '../src/tokenizer.ts';
-import { $ } from '../src/index.ts';
+import { param } from '../src/index.ts';
 import type { PlaceholderContext } from '../src/types.ts';
 
 // Helper functions to create placeholder contexts
@@ -503,10 +503,10 @@ describe('tokenizer', () => {
         const context = createCommonContext();
 
         const result = tokenize({
-          where: ['=', 'id', $]
+          where: ['=', 'id', param(0)]
         }, context);
 
-        expect(context.placeholders).to.deep.equal([0]);
+        expect(context.placeholders).to.deep.equal([{ type: 'named', key: 0 }]);
         expect(result).to.deep.include(['WHERE', 'id = \x00MANUKA_PH_0\x00']);
       });
 
@@ -514,10 +514,10 @@ describe('tokenizer', () => {
         const context = createPgContext();
 
         const result = tokenize({
-          where: ['=', 'id', $]
+          where: ['=', 'id', param(0)]
         }, context);
 
-        expect(context.placeholders).to.deep.equal([0]);
+        expect(context.placeholders).to.deep.equal([{ type: 'named', key: 0 }]);
         expect(result).to.deep.include(['WHERE', 'id = \x00MANUKA_PH_0\x00']);
       });
     });
@@ -527,10 +527,10 @@ describe('tokenizer', () => {
         const context = createCommonContext();
 
         const result = tokenize({
-          where: ['=', 'email', $('userEmail')]
+          where: ['=', 'email', param('userEmail')]
         }, context);
 
-        expect(context.placeholders).to.deep.equal(['userEmail']);
+        expect(context.placeholders).to.deep.equal([{ type: 'named', key: 'userEmail' }]);
         expect(result).to.deep.include(['WHERE', 'email = \x00MANUKA_PH_0\x00']);
       });
 
@@ -538,10 +538,10 @@ describe('tokenizer', () => {
         const context = createPgContext();
 
         const result = tokenize({
-          where: ['=', 'email', $('userEmail')]
+          where: ['=', 'email', param('userEmail')]
         }, context);
 
-        expect(context.placeholders).to.deep.equal(['userEmail']);
+        expect(context.placeholders).to.deep.equal([{ type: 'named', key: 'userEmail' }]);
         expect(result).to.deep.include(['WHERE', 'email = \x00MANUKA_PH_0\x00']);
       });
     });
@@ -551,30 +551,39 @@ describe('tokenizer', () => {
         const context = createCommonContext();
 
         tokenize({
-          where: ['and', ['=', 'id', $], ['=', 'status', $]]
+          where: ['and', ['=', 'id', param(0)], ['=', 'status', param(1)]]
         }, context);
 
-        expect(context.placeholders).to.deep.equal([0, 1]);
+        expect(context.placeholders).to.deep.equal([
+          { type: 'named', key: 0 },
+          { type: 'named', key: 1 }
+        ]);
       });
 
       it('tracks placeholders sequentially with pg dialect', () => {
         const context = createPgContext();
 
         tokenize({
-          where: ['and', ['=', 'id', $], ['=', 'status', $]]
+          where: ['and', ['=', 'id', param(0)], ['=', 'status', param(1)]]
         }, context);
 
-        expect(context.placeholders).to.deep.equal([0, 1]);
+        expect(context.placeholders).to.deep.equal([
+          { type: 'named', key: 0 },
+          { type: 'named', key: 1 }
+        ]);
       });
 
       it('handles mixed positional and named placeholders', () => {
         const context = createCommonContext();
 
         tokenize({
-          where: ['and', ['=', 'id', $], ['=', 'email', $('email')]]
+          where: ['and', ['=', 'id', param(0)], ['=', 'email', param('email')]]
         }, context);
 
-        expect(context.placeholders).to.deep.equal([0, 'email']);
+        expect(context.placeholders).to.deep.equal([
+          { type: 'named', key: 0 },
+          { type: 'named', key: 'email' }
+        ]);
       });
     });
   });

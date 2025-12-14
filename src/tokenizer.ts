@@ -6,11 +6,7 @@ import type {
 
 // Helper to detect if a value is a placeholder
 function isPlaceholder(value: unknown): value is Placeholder {
-  // Check if it's a function with __isPlaceholder (the $ function itself)
-  if (typeof value === 'function' && '__isPlaceholder' in value) {
-    return true;
-  }
-  // Check if it's a named placeholder object
+  // Check if it's a placeholder object (PlaceholderDirect or PlaceholderNamed)
   if (typeof value === 'object' && value !== null && '__placeholder' in value) {
     return true;
   }
@@ -26,12 +22,12 @@ function handlePlaceholder(value: Placeholder, context?: PlaceholderContext): st
 
   const index = context.placeholders.length;
 
-  // Check if it's a named placeholder
-  if (typeof value === 'object' && '__placeholder' in value && 'key' in value) {
-    context.placeholders.push(value.key);
-  } else {
-    // Positional placeholder (the function itself)
-    context.placeholders.push(index);
+  // Check if it's a direct placeholder (has 'value' property)
+  if (typeof value === 'object' && '__placeholder' in value && 'value' in value) {
+    context.placeholders.push({ type: 'direct', value: value.value });
+  } else if (typeof value === 'object' && '__placeholder' in value && 'key' in value) {
+    // Named placeholder (has 'key' property)
+    context.placeholders.push({ type: 'named', key: value.key });
   }
 
   return `\x00MANUKA_PH_${index}\x00`;

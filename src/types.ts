@@ -1,12 +1,18 @@
 // Placeholder types for prepared statements
 export type PlaceholderNamed = { __placeholder: true; key: string | number };
+export type PlaceholderDirect = { __placeholder: true; value: unknown };
 
 export type PlaceholderFn = {
   (key: string): PlaceholderNamed;
   __isPlaceholder: true;
 };
 
-export type Placeholder = PlaceholderFn | PlaceholderNamed;
+export type Placeholder = PlaceholderFn | PlaceholderNamed | PlaceholderDirect;
+
+// Unified type for tracking placeholders in context
+export type PlaceholderEntry =
+  | { type: 'direct'; value: unknown }
+  | { type: 'named'; key: string | number };
 
 // Atom values (including placeholders)
 export type Atom = string | number | null | Placeholder;
@@ -41,7 +47,7 @@ export type Dialect = 'common' | 'pg';
 export type PlaceholderFormatter = (index: number) => string;
 
 export type PlaceholderContext = {
-  placeholders: Array<string | number>;
+  placeholders: PlaceholderEntry[];
   dialect: Dialect;
   formatPlaceholder: PlaceholderFormatter;
 };

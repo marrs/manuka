@@ -1,28 +1,27 @@
 import { expect } from 'chai';
-import { $ } from '../src/index.ts';
+import { param } from '../src/index.ts';
 import { eq } from '../src/vocabulary.ts';
 
-describe('$ placeholder', () => {
-  it('is a function with __isPlaceholder marker', () => {
-    expect(typeof $).to.equal('function');
-    expect($).to.have.property('__isPlaceholder', true);
+describe('param placeholder', () => {
+  it('is a function', () => {
+    expect(typeof param).to.equal('function');
   });
 
-  it('returns named placeholder object when called with key', () => {
-    const result = $('email');
+  it('returns named placeholder object when called with string key', () => {
+    const result = param('email');
     expect(result).to.have.property('__placeholder', true);
     expect(result).to.have.property('key', 'email');
   });
 
-  it('can be used directly as a value', () => {
-    // This tests that $ can be placed in an array/object as a value
-    const arr = [eq, 'id', $];
-    expect(arr[2]).to.equal($);
+  it('returns named placeholder object when called with numeric key', () => {
+    const result = param(0);
+    expect(result).to.have.property('__placeholder', true);
+    expect(result).to.have.property('key', 0);
   });
 
   it('returns different named placeholder objects for different keys', () => {
-    const email = $('email');
-    const status = $('status');
+    const email = param('email');
+    const status = param('status');
 
     expect(email.key).to.equal('email');
     expect(status.key).to.equal('status');
@@ -30,7 +29,7 @@ describe('$ placeholder', () => {
   });
 
   it('named placeholder has correct structure', () => {
-    const placeholder = $('userId');
+    const placeholder = param('userId');
 
     expect(Object.keys(placeholder)).to.have.lengthOf(2);
     expect(placeholder.__placeholder).to.be.true;

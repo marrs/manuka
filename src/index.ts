@@ -19,10 +19,11 @@ const PLACEHOLDER_FORMATTERS = {
 function validateBindings(context: PlaceholderContext, bindings: unknown[] | Record<string, unknown>): void {
   const { placeholders } = context;
 
-  // Check that each placeholder key exists in params
+  // Check that each named placeholder key exists in params
+  // Direct placeholders don't need validation as they have values embedded
   for (const placeholder of placeholders) {
-    if (!(placeholder in bindings)) {
-      throw new Error(`Missing parameter: ${placeholder}`);
+    if (placeholder.type === 'named' && !(placeholder.key in bindings)) {
+      throw new Error(`Missing parameter: ${placeholder.key}`);
     }
   }
 }
@@ -41,34 +42,36 @@ export function param(name: string | number): PlaceholderNamed {
 
 // Replace placeholder markers with display format for print/pprint
 function replacePlaceholdersForDisplay(text: string, context: PlaceholderContext, bindings: unknown[] | Record<string, unknown>): string {
-  if (!bindings.length) {
-    // No bindings provided - show placeholder syntax
-    return text.replace(/\x00MANUKA_PH_(\d+)\x00/g, (_, indexStr) => {
-      const index = parseInt(indexStr, 10);
-      const placeholder = context.placeholders[index];
+  return text.replace(/\x00MANUKA_PH_(\d+)\x00/g, (_, indexStr) => {
+    const index = parseInt(indexStr, 10);
+    const placeholder = context.placeholders[index];
 
-      if (typeof placeholder === 'string') {
-        return `param(${placeholder})`;
-      } else {
-        return `param(${placeholder})`;
-      }
-    });
-  } else {
-    // Bindings provided - substitute actual values
-    return text.replace(/\x00MANUKA_PH_(\d+)\x00/g, (_, indexStr) => {
-      const index = parseInt(indexStr, 10);
-      const key = context.placeholders[index];
-      const value = bindings[key as keyof typeof bindings];
+    let value: unknown;
 
-      if (typeof value === 'string') {
-        return `'${value}'`;
-      } else if (value === null) {
-        return 'NULL';
-      } else {
-        return String(value);
+    if (placeholder.type === 'direct') {
+      // Direct placeholder - use value directly
+      value = placeholder.value;
+    } else {
+      // Named placeholder
+      if (!bindings || (Array.isArray(bindings) && bindings.length === 0) || (typeof bindings === 'object' && Object.keys(bindings).length === 0)) {
+        // No bindings provided - show param(key) syntax for named placeholders
+        return `param(${placeholder.key})`;
       }
-    });
-  }
+      // Bindings provided - lookup value
+      value = (bindings as any)[placeholder.key];
+    }
+
+    // Format the value for display
+    if (typeof value === 'string') {
+      return `'${value}'`;
+    } else if (value === null) {
+      return 'NULL';
+    } else if (value === undefined) {
+      return 'undefined';
+    } else {
+      return String(value);
+    }
+  });
 }
 
 function stringifyToken(token: number | string | null) {
@@ -151,7 +154,13 @@ export function format(
   // Extract bindings from params based on placeholder order
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    bindings.push((params as any)[placeholder]);
+    if (placeholder.type === 'direct') {
+      // Direct placeholder - use value directly
+      bindings.push(placeholder.value);
+    } else {
+      // Named placeholder - lookup in params by key
+      bindings.push((params as any)[placeholder.key]);
+    }
   }
 
   return [sql, ...bindings];
@@ -174,7 +183,11 @@ format.print = function(
   // Extract bindings from params for logging
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    bindings.push((params as any)[placeholder]);
+    if (placeholder.type === 'direct') {
+      bindings.push(placeholder.value);
+    } else {
+      bindings.push((params as any)[placeholder.key]);
+    }
   }
 
   console.debug(output, bindings);
@@ -199,7 +212,11 @@ format.pretty = function(
   // Extract bindings from params
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    bindings.push((params as any)[placeholder]);
+    if (placeholder.type === 'direct') {
+      bindings.push(placeholder.value);
+    } else {
+      bindings.push((params as any)[placeholder.key]);
+    }
   }
 
   // Validate bindings if provided
