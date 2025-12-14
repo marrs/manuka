@@ -1,5 +1,5 @@
 // Placeholder types for prepared statements
-export type PlaceholderNamed = { __placeholder: true; key: string };
+export type PlaceholderNamed = { __placeholder: true; key: string | number };
 
 export type PlaceholderFn = {
   (key: string): PlaceholderNamed;
@@ -41,7 +41,7 @@ export type Dialect = 'common' | 'pg';
 export type PlaceholderFormatter = (index: number) => string;
 
 export type PlaceholderContext = {
-  placeholders: Array<number | string>;
+  placeholders: Array<string | number>;
   dialect: Dialect;
   formatPlaceholder: PlaceholderFormatter;
 };

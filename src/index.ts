@@ -4,6 +4,8 @@ import { tokenizeDml } from './tokenizer.ts';
 import { tokenizeDdl } from './ddl-tokenizer.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
+import type { PlaceholderNamed } from './vocabulary.ts';  // FIXME: Move to ./types.ts
+
 // Re-export $ from vocabulary
 export { $ } from './vocabulary.ts';
 
@@ -17,19 +19,10 @@ const PLACEHOLDER_FORMATTERS = {
 function validateBindings(context: PlaceholderContext, bindings: unknown[] | Record<string, unknown>): void {
   const { placeholders } = context;
 
-  if (Array.isArray(bindings)) {
-    // Positional bindings
-    if (bindings.length !== placeholders.length) {
-      throw new Error(
-        `Parameter count mismatch: expected ${placeholders.length} parameters but received ${bindings.length}`
-      );
-    }
-  } else {
-    // Named bindings
-    for (const placeholder of placeholders) {
-      if (typeof placeholder === 'string' && !(placeholder in bindings)) {
-        throw new Error(`Missing parameter: ${placeholder}`);
-      }
+  // Check that each placeholder key exists in params
+  for (const placeholder of placeholders) {
+    if (!(placeholder in bindings)) {
+      throw new Error(`Missing parameter: ${placeholder}`);
     }
   }
 }
@@ -42,6 +35,10 @@ function initPlaceholderContext(dialect: Dialect): PlaceholderContext {
   }
 }
 
+export function param(name: string | number): PlaceholderNamed {
+  return { __placeholder: true, key: name };
+}
+
 // Replace placeholder markers with display format for print/pprint
 function replacePlaceholdersForDisplay(text: string, context: PlaceholderContext, bindings: unknown[] | Record<string, unknown>): string {
   if (!bindings.length) {
@@ -51,9 +48,9 @@ function replacePlaceholdersForDisplay(text: string, context: PlaceholderContext
       const placeholder = context.placeholders[index];
 
       if (typeof placeholder === 'string') {
-        return `$(${placeholder})`;
+        return `param(${placeholder})`;
       } else {
-        return `$(${index})`;
+        return `param(${placeholder})`;
       }
     });
   } else {
@@ -154,13 +151,7 @@ export function format(
   // Extract bindings from params based on placeholder order
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    if (typeof placeholder === 'string') {
-      // Named placeholder - lookup in params object
-      bindings.push((params as Record<string, unknown>)[placeholder]);
-    } else {
-      // Positional placeholder - use params array
-      bindings.push((params as unknown[])[placeholder]);
-    }
+    bindings.push((params as any)[placeholder]);
   }
 
   return [sql, ...bindings];
@@ -183,11 +174,7 @@ format.print = function(
   // Extract bindings from params for logging
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    if (typeof placeholder === 'string') {
-      bindings.push((params as Record<string, unknown>)[placeholder]);
-    } else {
-      bindings.push((params as unknown[])[placeholder]);
-    }
+    bindings.push((params as any)[placeholder]);
   }
 
   console.debug(output, bindings);
@@ -212,11 +199,7 @@ format.pretty = function(
   // Extract bindings from params
   const bindings: unknown[] = [];
   for (const placeholder of context.placeholders) {
-    if (typeof placeholder === 'string') {
-      bindings.push((params as Record<string, unknown>)[placeholder]);
-    } else {
-      bindings.push((params as unknown[])[placeholder]);
-    }
+    bindings.push((params as any)[placeholder]);
   }
 
   // Validate bindings if provided

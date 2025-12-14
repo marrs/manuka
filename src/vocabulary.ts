@@ -40,7 +40,7 @@ export const references = 'references';
 export const unique = 'unique';
 
 // Placeholder types
-type PlaceholderNamed = { __placeholder: true; key: string };
+export type PlaceholderNamed = { __placeholder: true; key: string | number };
 
 type PlaceholderFn = {
   (key: string): PlaceholderNamed;
