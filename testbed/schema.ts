@@ -135,7 +135,7 @@ export const reviews: CommonDdl = {
     ['id', integer, [primaryKey]],
     ['product_id', integer, [not, null]],
     ['user_id', integer, [not, null]],
-    ['rating', integer, [not, null], [check, [and, [gte, 'rating', 1], [gte, 5, 'rating']]]],
+    ['rating', integer, [not, null], [check, [and, [gte, 'rating', 1], [lte, 'rating', 5]]]],
     ['title', text],
     ['comment', text],
     ['created_at', integer, [not, null]],
