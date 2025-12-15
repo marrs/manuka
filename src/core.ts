@@ -1,4 +1,4 @@
-const upperCaseSqlKeywords = {
+const upperCaseSqlKeywords: Record<string, string> = {
   'check': 'CHECK',
   'create table': 'CREATE TABLE',
   'column': 'COLUMN',
@@ -22,7 +22,7 @@ const upperCaseSqlKeywords = {
   'values': 'VALUES',
 }
 
-export function upperCaseSqlKeyword(kw: string) {
+export function upperCaseSqlKeyword(kw: string): string {
   const result = upperCaseSqlKeywords[kw];
   if (!result) {
     console.error("No upper case keyword for", kw);
