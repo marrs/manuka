@@ -468,7 +468,7 @@ describe('separator formatter', () => {
     context('common dialect', () => {
       it('replaces single placeholder marker with ?', () => {
         const context = {
-          placeholders: [0],
+          placeholders: [{ type: 'direct' as const, value: 1 }],
           dialect: 'common' as const,
           formatPlaceholder: () => '?'
         };
@@ -482,7 +482,7 @@ describe('separator formatter', () => {
 
       it('replaces multiple placeholder markers with ?', () => {
         const context = {
-          placeholders: [0, 1],
+          placeholders: [{ type: 'direct' as const, value: 1 }, { type: 'direct' as const, value: 2 }],
           dialect: 'common' as const,
           formatPlaceholder: () => '?'
         };
@@ -499,7 +499,7 @@ describe('separator formatter', () => {
     context('pg dialect', () => {
       it('replaces single placeholder marker with $1', () => {
         const context = {
-          placeholders: [0],
+          placeholders: [{ type: 'direct' as const, value: 1 }],
           dialect: 'pg' as const,
           formatPlaceholder: (idx: number) => `$${idx + 1}`
         };
@@ -513,7 +513,7 @@ describe('separator formatter', () => {
 
       it('replaces multiple placeholder markers with $1, $2, etc.', () => {
         const context = {
-          placeholders: [0, 1, 2],
+          placeholders: [{ type: 'direct' as const, value: 1 }, { type: 'direct' as const, value: 2 }, { type: 'direct' as const, value: 3 }],
           dialect: 'pg' as const,
           formatPlaceholder: (idx: number) => `$${idx + 1}`
         };
@@ -531,7 +531,7 @@ describe('separator formatter', () => {
     context('prettyFormatter with placeholders', () => {
       it('replaces markers in formatted output for common', () => {
         const context = {
-          placeholders: [0, 1],
+          placeholders: [{ type: 'direct' as const, value: 1 }, { type: 'direct' as const, value: 2 }],
           dialect: 'common' as const,
           formatPlaceholder: () => '?'
         };
@@ -548,7 +548,7 @@ describe('separator formatter', () => {
 
       it('replaces markers in formatted output for pg', () => {
         const context = {
-          placeholders: [0, 1],
+          placeholders: [{ type: 'direct' as const, value: 1 }, { type: 'direct' as const, value: 2 }],
           dialect: 'pg' as const,
           formatPlaceholder: (idx: number) => `$${idx + 1}`
         };

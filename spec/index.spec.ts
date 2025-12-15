@@ -345,7 +345,7 @@ describe('placeholders for params option', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       const [sql] = format.print({
-        where: [and, [eq, 'id', param], [eq, 'status', param]]
+        where: [and, [eq, 'id', param(0)], [eq, 'status', param(1)]]
       }, {dialect: 'common', params: []});
 
       expect(sql).to.match(/id = \?/);

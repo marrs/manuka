@@ -20,10 +20,10 @@ async function main() {
     const testTable: CommonDdl = {
       createTable: ['test_users', 'if not exists'],
       withColumns: [
-        ['id', 'INTEGER', ['PRIMARY KEY']],
-        ['name', 'TEXT', ['NOT', null]],
-        ['email', 'TEXT', ['UNIQUE'], ['NOT', null]],
-        ['created_at', 'INTEGER', ['DEFAULT', 0]]
+        ['id', 'integer', ['primary key']],
+        ['name', 'text', ['not', null]],
+        ['email', 'text', ['unique'], ['not', null]],
+        ['created_at', 'integer', ['default', 0]]
       ]
     };
 

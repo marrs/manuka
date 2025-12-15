@@ -50,7 +50,7 @@ describe('insertion', () => {
         ]
       }),
     });
-    await db.execute({sql, args});
+    await db.execute({sql, args: args as any});
 
     // Verify complex calculation: (100 * 1.2) + 10 - 5 = 125
     const [selectSql] = format({
@@ -63,11 +63,13 @@ describe('insertion', () => {
     expect(result.rows).to.have.lengthOf(2);
 
     const laptop = result.rows.find((r: any) => r.id === 1);
-    expect(laptop.sku).to.equal('ELEC-001');
-    expect(laptop.price).to.equal(125); // (100 * 1.2) + 10 - 5
+    expect(laptop).to.exist;
+    expect(laptop!.sku).to.equal('ELEC-001');
+    expect(laptop!.price).to.equal(125); // (100 * 1.2) + 10 - 5
 
     const mouse = result.rows.find((r: any) => r.id === 2);
-    expect(mouse.sku).to.equal('ELEC-002');
-    expect(mouse.price).to.equal(40); // 20 * 2
+    expect(mouse).to.exist;
+    expect(mouse!.sku).to.equal('ELEC-002');
+    expect(mouse!.price).to.equal(40); // 20 * 2
   });
 });

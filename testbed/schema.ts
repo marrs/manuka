@@ -1,6 +1,6 @@
 import type { CommonDdl } from '../src/types.ts';
 import {
-  ifNotExists, eq, gte, gt, and, not,
+  ifNotExists, eq, gte, lte, gt, and, not,
   integer, text, real, primaryKey, foreignKey,
   references, unique, byDefault, check,
   composite,
@@ -67,7 +67,7 @@ export const products: CommonDdl = {
     ['weight_kg', real],
     ['is_available', integer, [byDefault, 1]],
     ['created_at', integer, [not, null]],
-    ['image_data', 'BLOB'],
+    ['image_data', 'blob'],
     [[foreignKey, 'category_id'], [references, ['categories', 'id']]]
   ]
 };
