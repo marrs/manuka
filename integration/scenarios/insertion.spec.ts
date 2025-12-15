@@ -38,7 +38,7 @@ describe('insertion', () => {
     // Test complex nested expression with operator precedence:
     // price = (base * markup) + shipping - discount
     // sku = category || '-' || id
-    const [sql, ...args] = format.pprint({
+    let [sql, ...args] = format({
       insertInto: 'products',
       columns: ['id', 'category_id', 'sku', 'name', 'price', 'created_at'],
       values: productData.map(({categoryId, skuCategory, name, price, date}, idx): any => {
@@ -53,12 +53,12 @@ describe('insertion', () => {
     await db.execute({sql, args: args as any});
 
     // Verify complex calculation: (100 * 1.2) + 10 - 5 = 125
-    const [selectSql] = format({
+    [sql, ...args] = format({
       select: ['id', 'sku', 'price'],
       from: ['products'],
-      where: [eq, 'category_id', 1]
+      where: [eq, 'category_id', $(1)]
     });
-    const result = await db.execute(selectSql);
+    const result = await db.execute({sql, args: args as any});
 
     expect(result.rows).to.have.lengthOf(2);
 
