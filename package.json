@@ -19,7 +19,7 @@
     "README.md"
   ],
   "scripts": {
-    "tsc": "npx tsc --noEmit 2>&1 | head -50",
+    "tsc": ".yarn/sdks/typescript/bin/tsc --noEmit 2>&1 | head -50",
     "test": "mocha",
     "integration:common": "mocha --config .mocharc.integration.json",
     "test:all": "yarn test && yarn integration:common",
