@@ -1,7 +1,9 @@
 import type {
   CommonDdl, ExprToken, ColumnDef, TableConstraint,
-  ColumnType, Constraint, Expr, IfExists,
+  ColumnType, Constraint, Expr, IfExists, Atom, SqlValue,
 } from './types.ts';
+
+import { formatSqlValue } from './tokenizer/core.ts';
 
 import {
   byDefault,
@@ -224,11 +226,19 @@ function isTableConstraint(item: ColumnDef | TableConstraint): item is TableCons
   return Array.isArray(item[0]) && Array.isArray(item[0]);
 }
 
-function formatValue(value: string | number | null): string {
-  if (value === null) return 'NULL';
-  if (typeof value === 'number') return String(value);
-  // String values need to be quoted in SQL
-  return `'${value}'`;
+function formatValue(value: Atom): string {
+  // Placeholders shouldn't appear in DDL, but handle them just in case
+  if (typeof value === 'object' && value !== null && '__placeholder' in value) {
+    throw new Error('Placeholders are not supported in DDL expressions');
+  }
+  if (typeof value === 'function') {
+    throw new Error('Placeholder functions are not supported in DDL expressions');
+  }
+
+  if (typeof value === 'string') {
+    return `'${value}'`;
+  }
+  return formatSqlValue(value);
 }
 
 function formatExpr(expr: Expr): string {
