@@ -1,9 +1,9 @@
 import type {
   CommonDdl, ExprToken, ColumnDef, TableConstraint,
-  ColumnType, Constraint, Expr, IfExists, Atom, SqlValue,
-} from './types.ts';
+  ColumnType, Constraint, Expr, IfExists, Atom,
+} from '../types.ts';
 
-import { formatSqlValue } from './tokenizer/core.ts';
+import { formatSqlValue } from './core.ts';
 
 import {
   byDefault,
@@ -16,8 +16,8 @@ import {
   composite,
   references,
   check,
-} from './vocabulary.ts';
-import { upperCaseSqlKeyword } from './core.ts';
+} from '../vocabulary.ts';
+import { upperCaseSqlKeyword } from '../core.ts';
 
 export function tokenizeDdl(dsl: CommonDdl): ExprToken[] {
   const tokens: ExprToken[] = [];

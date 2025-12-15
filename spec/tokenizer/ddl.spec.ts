@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { tokenizeDdl } from '../src/ddl-tokenizer.ts';
+import { tokenizeDdl } from '../../src/tokenizer/ddl.ts';
 import {
   check,
   composite,
@@ -14,7 +14,7 @@ import {
   varchar,
   text,
   unique,
-} from '../src/vocabulary.ts';
+} from '../../src/vocabulary.ts';
 
 describe('ddl-tokenizer', () => {
   context('create table', () => {

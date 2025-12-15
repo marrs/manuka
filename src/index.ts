@@ -10,8 +10,8 @@ import type {
   SqlValue,
 } from './types.ts';
 import { DDL_KEYS } from './types.ts';
-import { tokenizeDml } from './tokenizer.ts';
-import { tokenizeDdl } from './ddl-tokenizer.ts';
+import { tokenizeDml } from './tokenizer/dml.ts';
+import { tokenizeDdl } from './tokenizer/ddl.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
 
 // Placeholder formatters for different dialects

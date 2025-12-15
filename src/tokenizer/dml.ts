@@ -2,9 +2,9 @@ import type {
   CommonDml, Expr, Atom, CompoundExpr, ExprToken,
   ComparisonExpr, LogicalExpr, LogicalOp, ValueRow,
   Placeholder, PlaceholderDirect, PlaceholderNamed, PlaceholderContext
-} from './types.ts';
+} from '../types.ts';
 
-import { formatSqlValue } from './tokenizer/core.ts';
+import { formatSqlValue } from './core.ts';
 
 // Helper to detect if a value is a placeholder
 function isPlaceholder(value: unknown): value is Placeholder {

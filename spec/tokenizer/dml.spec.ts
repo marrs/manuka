@@ -1,7 +1,7 @@
 import { expect } from 'chai';
-import { tokenize } from '../src/tokenizer.ts';
-import { param } from '../src/index.ts';
-import type { PlaceholderContext } from '../src/types.ts';
+import { tokenize } from '../../src/tokenizer.ts';
+import { param } from '../../src/index.ts';
+import type { PlaceholderContext } from '../../src/types.ts';
 
 // Helper functions to create placeholder contexts
 function createCommonContext(): PlaceholderContext {
