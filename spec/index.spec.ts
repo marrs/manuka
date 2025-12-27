@@ -80,161 +80,63 @@ describe('format', () => {
       expect(sql).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
     });
   });
-});
 
-describe('format.print', () => {
-  it('formats with newlines and logs to console.debug.', () => {
-    const consoleDebugSpy = sinon.spy(console, 'debug');
-
-    const [sql] = format.print({
-      select: ['*'],
-      from: ['users']
+  context('insert', () => {
+    it('formats basic INSERT statement', () => {
+      const [sql] = format({
+        insertInto: 'users',
+        values: [[1, 'John', 'john@example.com']]
+      });
+      expect(sql).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
     });
 
-    expect(sql).to.eql("SELECT *\nFROM users");
-    expect(consoleDebugSpy.calledOnce).to.be.true;
-    expect(consoleDebugSpy.calledWith("SELECT *\nFROM users")).to.be.true;
-
-    consoleDebugSpy.restore();
-  });
-
-  it('returns the formatted output.', () => {
-    const consoleDebugStub = sinon.stub(console, 'debug');
-
-    const [sql] = format.print({
-      select: ['a', 'b'],
-      from: ['t1']
-    });
-
-    expect(sql).to.eql("SELECT a, b\nFROM t1");
-
-    consoleDebugStub.restore();
-  });
-});
-
-describe('format.pretty', () => {
-  it('prettifies with right-aligned keywords.', () => {
-    const [sql] = format.pretty({
-      select: ['*'],
-      from: ['users'],
-      orderBy: 'id',
-    });
-    expect(sql).to.eql("  SELECT *\n    FROM users\nORDER BY id");
-  });
-
-  it('formats a complete query with right-aligned keywords and operators.', () => {
-    const [sql] = format.pretty({
-      select: ['a', 'b', 'c'],
-      from: ['t1'],
-      where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
-    });
-    expect(sql).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
-  });
-});
-
-describe('format.pprint', () => {
-  const selectFromUsers = partial({ select: ['*'], from: ['users'] });
-
-  it('formats with pretty alignment and logs to console.debug.', () => {
-    const consoleDebugSpy = sinon.spy(console, 'debug');
-
-    const [sql] = format.pprint(selectFromUsers({
-      where: [eq, 'id', '1']
-    }));
-
-    expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
-    expect(consoleDebugSpy.calledOnce).to.be.true;
-    expect(consoleDebugSpy.calledWith("SELECT *\n  FROM users\n WHERE id = 1")).to.be.true;
-
-    consoleDebugSpy.restore();
-  });
-
-  it('returns the formatted output.', () => {
-    const consoleDebugStub = sinon.stub(console, 'debug');
-
-    const [sql] = format.pprint({
-      select: ['a', 'b'],
-      from: ['t1']
-    });
-
-    expect(sql).to.eql("SELECT a, b\n  FROM t1");
-
-    consoleDebugStub.restore();
-  });
-});
-
-describe('format with unified DML/DDL API', () => {
-  it('handles DML queries', () => {
-    const [sql] = format({ select: ['*'], from: ['users'] });
-    expect(sql).to.eql("SELECT * FROM users");
-  });
-
-  it('handles DDL statements', () => {
-    const [sql] = format({
-      createTable: 'users',
-      withColumns: [['id', integer]]
-    });
-    expect(sql).to.eql("CREATE TABLE users (id INTEGER)");
-  });
-});
-
-describe('insert', () => {
-  it('formats basic INSERT statement', () => {
-    const [sql] = format({
-      insertInto: 'users',
-      values: [[1, 'John', 'john@example.com']]
-    });
-    expect(sql).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
-  });
-
-  it('formats INSERT with column list and multi-row', () => {
-    const [sql] = format({
-      insertInto: 'users',
-      columns: ['id', 'name'],
-      values: [[1, 'John'], [2, 'Jane']]
-    });
-    expect(sql).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
-  });
-
-  it('formats INSERT with expressions and operator precedence', () => {
-    const [sql] = format({
-      insertInto: 'calc',
-      values: [[['*', ['+', 2, 3], 4]]]
-    });
-    expect(sql).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
-  });
-
-  context('insert with formatters', () => {
-    it('format.print() outputs INSERT with newlines', () => {
-      const [sql] = format.print({
+    it('formats INSERT with column list and multi-row', () => {
+      const [sql] = format({
         insertInto: 'users',
         columns: ['id', 'name'],
-        values: [[1, 'John']]
-      });
-      expect(sql).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
-    });
-
-    it('format.pretty() outputs INSERT with right-aligned keywords', () => {
-      const [sql] = format.pretty({
-        insertInto: 'users',
-        columns: ['id', 'name'],
-        values: [[1, 'John']]
-      });
-      expect(sql).to.eql("INSERT INTO users (id, name)\n     VALUES (1, 'John')");
-    });
-
-    it('format.pretty() handles multi-row INSERT', () => {
-      const [sql] = format.pretty({
-        insertInto: 'users',
         values: [[1, 'John'], [2, 'Jane']]
       });
-      expect(sql).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
+      expect(sql).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
+    });
+
+    it('formats INSERT with expressions and operator precedence', () => {
+      const [sql] = format({
+        insertInto: 'calc',
+        values: [[['*', ['+', 2, 3], 4]]]
+      });
+      expect(sql).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
+    });
+
+    context('insert with formatters', () => {
+      it('format.print() outputs INSERT with newlines', () => {
+        const [sql] = format.print({
+          insertInto: 'users',
+          columns: ['id', 'name'],
+          values: [[1, 'John']]
+        });
+        expect(sql).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
+      });
+
+      it('format.pretty() outputs INSERT with right-aligned keywords', () => {
+        const [sql] = format.pretty({
+          insertInto: 'users',
+          columns: ['id', 'name'],
+          values: [[1, 'John']]
+        });
+        expect(sql).to.eql("INSERT INTO users (id, name)\n     VALUES (1, 'John')");
+      });
+
+      it('format.pretty() handles multi-row INSERT', () => {
+        const [sql] = format.pretty({
+          insertInto: 'users',
+          values: [[1, 'John'], [2, 'Jane']]
+        });
+        expect(sql).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
+      });
     });
   });
-});
 
-describe('placeholders for params option', () => {
-  context('format() with placeholders', () => {
+  context('parameter binding', () => {
     it('generates query with ? placeholders for common dialect', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
@@ -305,89 +207,7 @@ describe('placeholders for params option', () => {
     });
   });
 
-  context('format.print() with placeholders', () => {
-    // FIXME: This test is wrong.
-    it('substitutes values in logged output when bindings provided', () => {
-      const consoleDebugStub = sinon.stub(console, 'debug');
-
-      const [sql] = format.print({
-        where: [eq, 'id', param(0)]
-      }, {dialect: 'common', params: [123]});
-
-      expect(sql).to.include('id = ?');  // FIXME: 'id = 123'
-      consoleDebugStub.restore();
-    });
-
-    it('substitutes values in logged output when bindings provided', () => {
-      const consoleDebugStub = sinon.stub(console, 'debug');
-
-      format.print({
-        where: [eq, 'id', param(0)]
-      }, {dialect: 'common', params: [123]});
-
-      expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
-      consoleDebugStub.restore();
-    });
-
-    it('shows placeholder syntax in logged output when no bindings provided', () => {
-      const consoleDebugStub = sinon.stub(console, 'debug');
-
-      format.print({
-        where: [and, [eq, 'id', param(0)], [eq, 'status', param(1)]]
-      }, {dialect: 'common', params: []});
-
-      expect(consoleDebugStub).to.have.been.calledWithMatch('id = param(0)');
-      expect(consoleDebugStub).to.have.been.calledWithMatch('status = param(1)');
-      consoleDebugStub.restore();
-    });
-
-    it.skip('returns prepared statement when no bindings provided', () => {
-      const consoleDebugStub = sinon.stub(console, 'debug');
-
-      const [sql] = format.print({
-        where: [and, [eq, 'id', param(0)], [eq, 'status', param(1)]]
-      }, {dialect: 'common', params: []});
-
-      expect(sql).to.match(/id = \?/);
-      expect(sql).to.match(/status = \?/);
-      consoleDebugStub.restore();
-    });
-
-    it('shows named placeholder syntax in logged output for named placeholders', () => {
-      const consoleDebugStub = sinon.stub(console, 'debug');
-
-      format.print({
-        where: [eq, 'email', param('email')]
-      }, {dialect: 'common', params: {}});
-
-      expect(consoleDebugStub).to.have.been.calledWithMatch('email = param(email)');
-      consoleDebugStub.restore();
-    });
-  });
-
-  context('format.pretty() with placeholders', () => {
-    it('substitutes values when bindings provided', () => {
-      const [sql] = format.pretty({
-        select: [all],
-        where: [eq, 'id', param(0)]
-      }, {dialect: 'common', params: [123]});
-
-      expect(sql).to.include('id = 123');
-    });
-
-    it('shows placeholder syntax when no bindings provided', () => {
-      const [sql] = format.pretty({
-        where: [and, [eq, 'id', param(0)], [eq, 'email', param('email')]]
-      });
-
-      expect(sql).to.include('param(0)');
-      expect(sql).to.include("param(email)");
-    });
-  });
-});
-
-describe('placeholders for direct parameter binding', () => {
-  context('format() with placeholders', () => {
+  context('direct variable binding', () => {
     it('generates query with ? placeholders for common dialect', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
@@ -457,51 +277,213 @@ describe('placeholders for direct parameter binding', () => {
       expect(bindings).to.deep.equal([false]);
     });
   });
-});
 
-describe('mixed param and direct placeholder', () => {
-  it('handles placeholders in INSERT VALUES', () => {
-    const [sql, ...bindings] = format({
-      insertInto: 'users',
-      columns: ['id', 'name', 'email'],
-      values: [[$(1), $('John'), param('email')]]
-    }, {dialect: 'common', params: {email: 'john@example.com'}});
+  context('mixed param and direct placeholder', () => {
+    it('handles placeholders in INSERT VALUES', () => {
+      const [sql, ...bindings] = format({
+        insertInto: 'users',
+        columns: ['id', 'name', 'email'],
+        values: [[$(1), $('John'), param('email')]]
+      }, {dialect: 'common', params: {email: 'john@example.com'}});
 
-    expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
-    expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
+      expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
+      expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
+    });
   });
+
 });
 
-describe('direct placeholders - display behavior', () => {
-  it('shows direct placeholder values in print() logged output', () => {
+describe('format.print', () => {
+  it('formats with newlines and logs to console.debug.', () => {
+    const consoleDebugSpy = sinon.spy(console, 'debug');
+
+    const [sql] = format.print({
+      select: ['*'],
+      from: ['users']
+    });
+
+    expect(sql).to.eql("SELECT *\nFROM users");
+    expect(consoleDebugSpy.calledOnce).to.be.true;
+    expect(consoleDebugSpy.calledWith("SELECT *\nFROM users")).to.be.true;
+
+    consoleDebugSpy.restore();
+  });
+
+  it('returns the formatted output.', () => {
     const consoleDebugStub = sinon.stub(console, 'debug');
 
-    format.print({
-      where: [eq, 'id', $(123)]
-    }, {dialect: 'common'});
+    const [sql] = format.print({
+      select: ['a', 'b'],
+      from: ['t1']
+    });
 
-    expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+    expect(sql).to.eql("SELECT a, b\nFROM t1");
+
     consoleDebugStub.restore();
   });
 
-  it('distinguishes between $(value) and param(key) in print() display', () => {
-    const consoleDebugStub = sinon.stub(console, 'debug');
+  context('with parameter bindings', () => {
+    // FIXME: This test is wrong.
+    it('substitutes values in logged output when bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
 
-    format.print({
-      where: [and, [eq, 'id', $(123)], [eq, 'email', param('email')]]
-    }, {dialect: 'common', params: {}});
+      const [sql] = format.print({
+        where: [eq, 'id', param(0)]
+      }, {dialect: 'common', params: [123]});
 
-    // Should show: id = 123 AND email = param(email)
-    expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
-    expect(consoleDebugStub).to.have.been.calledWithMatch('email = param(email)');
-    consoleDebugStub.restore();
+      expect(sql).to.include('id = ?');  // FIXME: 'id = 123'
+      consoleDebugStub.restore();
+    });
+
+    it('substitutes values in logged output when bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [eq, 'id', param(0)]
+      }, {dialect: 'common', params: [123]});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+      consoleDebugStub.restore();
+    });
+
+    it('shows placeholder syntax in logged output when no bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [and, [eq, 'id', param(0)], [eq, 'status', param(1)]]
+      }, {dialect: 'common', params: []});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = param(0)');
+      expect(consoleDebugStub).to.have.been.calledWithMatch('status = param(1)');
+      consoleDebugStub.restore();
+    });
+
+    it.skip('returns prepared statement when no bindings provided', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      const [sql] = format.print({
+        where: [and, [eq, 'id', param(0)], [eq, 'status', param(1)]]
+      }, {dialect: 'common', params: []});
+
+      expect(sql).to.match(/id = \?/);
+      expect(sql).to.match(/status = \?/);
+      consoleDebugStub.restore();
+    });
+
+    it('shows named placeholder syntax in logged output for named placeholders', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [eq, 'email', param('email')]
+      }, {dialect: 'common', params: {}});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('email = param(email)');
+      consoleDebugStub.restore();
+    });
   });
 
-  it('substitutes direct placeholder values in pretty format', () => {
+  context('direct placeholders - display behavior', () => {
+    it('shows direct placeholder values in print() logged output', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [eq, 'id', $(123)]
+      }, {dialect: 'common'});
+
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+      consoleDebugStub.restore();
+    });
+
+    it('distinguishes between $(value) and param(key) in print() display', () => {
+      const consoleDebugStub = sinon.stub(console, 'debug');
+
+      format.print({
+        where: [and, [eq, 'id', $(123)], [eq, 'email', param('email')]]
+      }, {dialect: 'common', params: {}});
+
+      // Should show: id = 123 AND email = param(email)
+      expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
+      expect(consoleDebugStub).to.have.been.calledWithMatch('email = param(email)');
+      consoleDebugStub.restore();
+    });
+
+    it('substitutes direct placeholder values in pretty format', () => {
+      const [sql] = format.pretty({
+        where: [eq, 'id', $(123)]
+      }, {dialect: 'common'});
+
+      expect(sql).to.include('id = 123');
+    });
+  });
+});
+
+describe('format.pretty', () => {
+  it('prettifies with right-aligned keywords.', () => {
     const [sql] = format.pretty({
-      where: [eq, 'id', $(123)]
-    }, {dialect: 'common'});
+      select: ['*'],
+      from: ['users'],
+      orderBy: 'id',
+    });
+    expect(sql).to.eql("  SELECT *\n    FROM users\nORDER BY id");
+  });
 
-    expect(sql).to.include('id = 123');
+  it('formats a complete query with right-aligned keywords and operators.', () => {
+    const [sql] = format.pretty({
+      select: ['a', 'b', 'c'],
+      from: ['t1'],
+      where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
+    });
+    expect(sql).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
+  });
+
+  context('with parameter bindings', () => {
+    it('substitutes values when bindings provided', () => {
+      const [sql] = format.pretty({
+        select: [all],
+        where: [eq, 'id', param(0)]
+      }, {dialect: 'common', params: [123]});
+
+      expect(sql).to.include('id = 123');
+    });
+
+    it('shows placeholder syntax when no bindings provided', () => {
+      const [sql] = format.pretty({
+        where: [and, [eq, 'id', param(0)], [eq, 'email', param('email')]]
+      });
+
+      expect(sql).to.include('param(0)');
+      expect(sql).to.include("param(email)");
+    });
+  });
+});
+
+describe('format.pprint', () => {
+  const selectFromUsers = partial({ select: ['*'], from: ['users'] });
+
+  it('formats with pretty alignment and logs to console.debug.', () => {
+    const consoleDebugSpy = sinon.spy(console, 'debug');
+
+    const [sql] = format.pprint(selectFromUsers({
+      where: [eq, 'id', '1']
+    }));
+
+    expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
+    expect(consoleDebugSpy.calledOnce).to.be.true;
+    expect(consoleDebugSpy.calledWith("SELECT *\n  FROM users\n WHERE id = 1")).to.be.true;
+
+    consoleDebugSpy.restore();
+  });
+
+  it('returns the formatted output.', () => {
+    const consoleDebugStub = sinon.stub(console, 'debug');
+
+    const [sql] = format.pprint({
+      select: ['a', 'b'],
+      from: ['t1']
+    });
+
+    expect(sql).to.eql("SELECT a, b\n  FROM t1");
+
+    consoleDebugStub.restore();
   });
 });
