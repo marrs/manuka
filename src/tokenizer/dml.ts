@@ -88,6 +88,12 @@ function tokenizeExpr(expr: Expr, keyword: string, context?: PlaceholderContext)
 
   if (isComparisonExpr(expr)) {
     const [operator, left, right] = expr;
+
+    // Handle IS NULL / IS NOT NULL (no right operand)
+    if (operator === 'IS NULL' || operator === 'IS NOT NULL') {
+      return [[keyword, `${left} ${operator}`]];
+    }
+
     return [[keyword, `${left} ${operator} ${formatValue(right, context)}`]];
   }
 
@@ -118,7 +124,13 @@ function tokenizeLogical(
     } else if (isComparisonExpr(operand)) {
       // Comparison predicate
       const [op, left, right] = operand;
-      tokens.push([currentKeyword, `${left} ${op} ${formatValue(right, context)}`]);
+
+      // Handle IS NULL / IS NOT NULL (no right operand)
+      if (op === 'IS NULL' || op === 'IS NOT NULL') {
+        tokens.push([currentKeyword, `${left} ${op}`]);
+      } else {
+        tokens.push([currentKeyword, `${left} ${op} ${formatValue(right, context)}`]);
+      }
     } else if (isLogicalExpr(operand)) {
       // Nested logical expression
       const [op, ...subOperands] = operand;
@@ -153,7 +165,7 @@ function isLogicalExpr(expr: CompoundExpr): expr is LogicalExpr {
 }
 
 function isComparisonOperator(op: string): boolean {
-  return ['=', '<>', '<', '>', '<=', '>=', 'LIKE'].includes(op);
+  return ['=', '<>', '<', '>', '<=', '>=', 'LIKE', 'IS NULL', 'IS NOT NULL'].includes(op);
 }
 
 function formatValue(value: Atom, context?: PlaceholderContext): string {

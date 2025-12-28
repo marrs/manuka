@@ -14,27 +14,29 @@ describe('format', () => {
   beforeEach(() => {
     format = formatter({
       schema: {
+        tables: new Set(['t1', 'users', 'products', 'orders', 'calc']),
         columns: {
           // Generic test columns
-          a: { t1: true },
-          b: { t1: true },
-          c: { t1: true },
+          a: new Set(['t1']),
+          b: new Set(['t1']),
+          c: new Set(['t1']),
+          't1.a': new Set(['t1']),
           // Users table columns
-          id: { users: true, products: true, orders: true },
-          name: { users: true, products: true },
-          email: { users: true },
-          status: { users: true },
-          active: { users: true },
-          age: { users: true },
-          role: { users: true },
-          username: { users: true },
-          password: { users: true },
+          id: new Set(['users', 'products', 'orders']),
+          name: new Set(['users', 'products']),
+          email: new Set(['users']),
+          status: new Set(['users']),
+          active: new Set(['users']),
+          age: new Set(['users']),
+          role: new Set(['users']),
+          username: new Set(['users']),
+          password: new Set(['users']),
           // Orders table columns
-          user_id: { orders: true },
-          total: { orders: true },
+          user_id: new Set(['orders']),
+          total: new Set(['orders']),
           // Products table columns
-          price: { products: true },
-          description: { products: true }
+          price: new Set(['products']),
+          description: new Set(['products'])
         }
       }
     });
@@ -46,12 +48,44 @@ describe('format', () => {
       expect(sql).to.eql("SELECT ");
     });
 
-    it('throws an exception if given column names are not in formatter schema', () => {
-    });
-
     it('returns a select expression for the given column names.', () => {
       const [sql] = format({select: ['a', 'b']});
       expect(sql).to.eql("SELECT a, b");
+    });
+
+    it('throws error for unknown column in SELECT', () => {
+      expect(() => {
+        format({
+          select: ['nonexistent'],
+          from: ['users']
+        });
+      }).to.throw(/unknown column.*nonexistent.*users/i);
+    });
+
+    it('throws error when column exists in different table', () => {
+      expect(() => {
+        format({
+          select: ['price'],  // price is in products, not users
+          from: ['users']
+        });
+      }).to.throw(/unknown column.*price.*users/i);
+    });
+
+    it('matches column names case-sensitively', () => {
+      expect(() => {
+        format({
+          select: ['Email'],  // Wrong case
+          from: ['users']
+        });
+      }).to.throw(/unknown column.*Email/i);
+    });
+
+    it('allows SELECT * without column validation', () => {
+      const [sql] = format({
+        select: ['*'],
+        from: ['users']
+      });
+      expect(sql).to.equal('SELECT * FROM users');
     });
   });
 
@@ -61,98 +95,248 @@ describe('format', () => {
       expect(sql).to.eql("SELECT * FROM users");
     });
 
-    it('throws an exception if given table names are not in formatter schema', () => {
-    });
-
     it('returns a from expression for multiple tables.', () => {
       const [sql] = format({select: ['*'], from: ['users', 'orders']});
       expect(sql).to.eql("SELECT * FROM users, orders");
     });
 
+    it('throws error for unknown table in FROM clause', () => {
+      expect(() => {
+        format({
+          select: ['*'],
+          from: ['nonexistent']
+        });
+      }).to.throw(/unknown table.*nonexistent/i);
+    });
+
+    it('matches table names case-sensitively', () => {
+      expect(() => {
+        format({
+          select: ['*'],
+          from: ['Users']  // Wrong case
+        });
+      }).to.throw(/unknown table.*Users/i);
+    });
   });
 
   context('where', () => {
     const selectFromUsers = partial({ select: ['*'], from: ['users'] });
 
     it('formats a simple equality condition.', () => {
-      const [sql] = format(selectFromUsers({
+      const [sql, ...bindings] = format(selectFromUsers({
         where: [eq, 'id', '1']
       }));
-      expect(sql).to.eql("SELECT * FROM users WHERE id = 1");
+      expect(sql).to.eql("SELECT * FROM users WHERE id = ?");
+      expect(bindings).to.deep.equal(['1']);
     });
 
     it('formats a not-equal condition.', () => {
-      const [sql] = format(selectFromUsers({
+      const [sql, ...bindings] = format(selectFromUsers({
         where: [ne, 'status', 'inactive']
       }));
-      expect(sql).to.eql("SELECT * FROM users WHERE status <> inactive");
+      expect(sql).to.eql("SELECT * FROM users WHERE status <> ?");
+      expect(bindings).to.deep.equal(['inactive']);
     });
 
     it('formats an AND condition with multiple predicates.', () => {
-      const [sql] = format(selectFromUsers({
+      const [sql, ...bindings] = format(selectFromUsers({
         where: [and, [eq, 'active', 'true'], [gt, 'age', '18']]
       }));
-      expect(sql).to.eql("SELECT * FROM users WHERE active = true AND age > 18");
+      expect(sql).to.eql("SELECT * FROM users WHERE active = ? AND age > ?");
+      expect(bindings).to.deep.equal(['true', '18']);
     });
 
     it('formats an OR condition with multiple predicates.', () => {
-      const [sql] = format(selectFromUsers({
+      const [sql, ...bindings] = format(selectFromUsers({
         where: [or, [eq, 'role', 'admin'], [eq, 'role', 'moderator']]
       }));
-      expect(sql).to.eql("SELECT * FROM users WHERE role = admin OR role = moderator");
+      expect(sql).to.eql("SELECT * FROM users WHERE role = ? OR role = ?");
+      expect(bindings).to.deep.equal(['admin', 'moderator']);
     });
 
     it('formats nested logical operators.', () => {
-      const [sql] = format(selectFromUsers({
+      const [sql, ...bindings] = format(selectFromUsers({
         where: [and, [eq, 'active', 'true'], [or, [eq, 'role', 'admin'], [eq, 'role', 'mod']]]
       }));
-      expect(sql).to.eql("SELECT * FROM users WHERE active = true AND (role = admin OR role = mod)");
+      expect(sql).to.eql("SELECT * FROM users WHERE active = ? AND (role = ? OR role = ?)");
+      expect(bindings).to.deep.equal(['true', 'admin', 'mod']);
     });
 
     it('formats the README example.', () => {
-      const [sql] = format({
+      const [sql, ...bindings] = format({
         select: ['a', 'b', 'c'],
         from: ['t1'],
         where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
       });
-      expect(sql).to.eql("SELECT a, b, c FROM t1 WHERE b <> bar AND t1.a = baz");
+      expect(sql).to.eql("SELECT a, b, c FROM t1 WHERE b <> ? AND t1.a = ?");
+      expect(bindings).to.deep.equal(['bar', 'baz']);
+    });
+
+    it('throws error for unknown column in WHERE', () => {
+      expect(() => {
+        format({
+          select: ['*'],
+          from: ['users'],
+          where: ['=', 'nonexistent', $('value')]
+        });
+      }).to.throw(/unknown column.*nonexistent/i);
+    });
+
+    it('wraps string values as placeholders in WHERE', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'username', 'alice']  // Plain string, not $()
+      });
+      expect(sql).to.include('username = ?');
+      expect(bindings).to.deep.equal(['alice']);
+    });
+
+    it('wraps number values as placeholders in WHERE', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['orders'],
+        where: ['=', 'total', 100]  // Plain number
+      });
+      expect(sql).to.include('total = ?');
+      expect(bindings).to.deep.equal([100]);
+    });
+
+    it('wraps boolean values as placeholders in WHERE', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'status', true]  // Plain boolean
+      });
+      expect(sql).to.include('status = ?');
+      expect(bindings).to.deep.equal([true]);
+    });
+
+    it('does not wrap column names as placeholders', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'email', 'username']  // Column-to-column comparison
+      });
+      expect(sql).to.include('email = username');
+      expect(bindings).to.deep.equal([]);  // No bindings
+    });
+
+    it.skip('place() forces a column name to be treated as a value placeholder', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'email', place('username')]  // Force 'username' as value
+      });
+      expect(sql).to.include('email = ?');
+      expect(bindings).to.deep.equal(['username']);
+    });
+
+    it('wraps unknown strings as placeholders (not column names)', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'email', 'alice@example.com']  // Unknown string
+      });
+      expect(sql).to.include('email = ?');
+      expect(bindings).to.deep.equal(['alice@example.com']);
+    });
+
+    it('handles mixed value types', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['and',
+          ['=', 'id', 1],
+          ['=', 'username', 'alice'],
+          ['=', 'status', true]
+        ]
+      });
+      expect(bindings).to.deep.equal([1, 'alice', true]);
+    });
+
+    it('transforms [=, col, null] to IS NULL', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['=', 'email', null]
+      });
+      expect(sql).to.include('email IS NULL');
+      expect(bindings).to.deep.equal([]);  // No binding for IS NULL
+    });
+
+    it('transforms [<>, col, null] to IS NOT NULL', () => {
+      const [sql, ...bindings] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['<>', 'email', null]
+      });
+      expect(sql).to.include('email IS NOT NULL');
+      expect(bindings).to.deep.equal([]);
+    });
+
+    it('throws error for other operators with null', () => {
+      expect(() => {
+        format({
+          select: ['*'],
+          from: ['users'],
+          where: ['>', 'id', null]
+        });
+      }).to.throw(/cannot use .* with null/i);
+    });
+
+    it('handles NULL in complex expressions', () => {
+      const [sql] = format({
+        select: ['*'],
+        from: ['users'],
+        where: ['and',
+          ['=', 'email', null],
+          ['>', 'id', 100]
+        ]
+      });
+      expect(sql).to.include('email IS NULL');
+      expect(sql).to.include('id > ?');
     });
   });
 
   context('insert', () => {
     it('formats basic INSERT statement', () => {
-      const [sql] = format({
+      const [sql, ...bindings] = format({
         insertInto: 'users',
         values: [[1, 'John', 'john@example.com']]
       });
-      expect(sql).to.eql("INSERT INTO users VALUES (1, 'John', 'john@example.com')");
+      expect(sql).to.eql("INSERT INTO users VALUES (?, ?, ?)");
+      expect(bindings).to.deep.equal([1, 'John', 'john@example.com']);
     });
 
     it('formats INSERT with column list and multi-row', () => {
-      const [sql] = format({
+      const [sql, ...bindings] = format({
         insertInto: 'users',
         columns: ['id', 'name'],
         values: [[1, 'John'], [2, 'Jane']]
       });
-      expect(sql).to.eql("INSERT INTO users (id, name) VALUES (1, 'John'), (2, 'Jane')");
+      expect(sql).to.eql("INSERT INTO users (id, name) VALUES (?, ?), (?, ?)");
+      expect(bindings).to.deep.equal([1, 'John', 2, 'Jane']);
     });
 
     it('formats INSERT with expressions and operator precedence', () => {
-      const [sql] = format({
+      const [sql, ...bindings] = format({
         insertInto: 'calc',
         values: [[['*', ['+', 2, 3], 4]]]
       });
-      expect(sql).to.eql("INSERT INTO calc VALUES ((2 + 3) * 4)");
+      expect(sql).to.eql("INSERT INTO calc VALUES ((? + ?) * ?)");
+      expect(bindings).to.deep.equal([2, 3, 4]);
     });
 
     context('insert with formatters', () => {
       it('format.print() outputs INSERT with newlines', () => {
-        const [sql] = format.print({
+        const [sql, ...bindings] = format.print({
           insertInto: 'users',
           columns: ['id', 'name'],
           values: [[1, 'John']]
         });
-        expect(sql).to.eql("INSERT INTO users (id, name)\nVALUES (1, 'John')");
+        expect(sql).to.eql("INSERT INTO users (id, name)\nVALUES (?, ?)");
+        expect(bindings).to.deep.equal([1, 'John']);
       });
 
       it('format.pretty() outputs INSERT with right-aligned keywords', () => {
@@ -171,6 +355,52 @@ describe('format', () => {
         });
         expect(sql).to.eql("INSERT INTO users\n     VALUES (1, 'John'), (2, 'Jane')");
       });
+    });
+
+    it('validates INSERT INTO table exists', () => {
+      const [sql] = format({
+        insertInto: 'users',
+        values: [[$(1), $('alice')]]
+      });
+      expect(sql).to.include('INSERT INTO users');
+    });
+
+    it('throws error for unknown table in INSERT INTO', () => {
+      expect(() => {
+        format({
+          insertInto: 'nonexistent',
+          values: [[$(1)]]
+        });
+      }).to.throw(/unknown table.*nonexistent/i);
+    });
+
+    it('validates INSERT columns exist', () => {
+      const [sql] = format({
+        insertInto: 'users',
+        columns: ['id', 'email'],
+        values: [[$(1), $('test@example.com')]]
+      });
+      expect(sql).to.include('id, email');
+    });
+
+    it('throws error for unknown column in INSERT', () => {
+      expect(() => {
+        format({
+          insertInto: 'users',
+          columns: ['nonexistent'],
+          values: [[$(1)]]
+        });
+      }).to.throw(/unknown column.*nonexistent/i);
+    });
+
+    it('wraps all values in INSERT VALUES', () => {
+      const [sql, ...bindings] = format({
+        insertInto: 'users',
+        columns: ['id', 'username', 'email'],
+        values: [[1, 'alice', 'alice@example.com']]  // Plain values
+      });
+      expect(sql).to.include('VALUES (?, ?, ?)');
+      expect(bindings).to.deep.equal([1, 'alice', 'alice@example.com']);
     });
   });
 
@@ -332,6 +562,24 @@ describe('format', () => {
 });
 
 describe('format.print', () => {
+  let format: ReturnType<typeof formatter>;
+
+  beforeEach(() => {
+    format = formatter({
+      schema: {
+        tables: new Set(['users', 't1']),
+        columns: {
+          a: new Set(['t1']),
+          b: new Set(['t1']),
+          id: new Set(['users']),
+          status: new Set(['users']),
+          email: new Set(['users']),
+          field: new Set(['users'])
+        }
+      }
+    });
+  });
+
   it('formats with newlines and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
 
@@ -396,7 +644,7 @@ describe('format.print', () => {
       consoleDebugStub.restore();
     });
 
-    it.skip('returns prepared statement when no bindings provided', () => {
+    it('returns prepared statement when no bindings provided', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       const [sql] = format.print({
@@ -456,6 +704,24 @@ describe('format.print', () => {
 });
 
 describe('format.pretty', () => {
+  let format: ReturnType<typeof formatter>;
+
+  beforeEach(() => {
+    format = formatter({
+      schema: {
+        tables: new Set(['users', 't1']),
+        columns: {
+          a: new Set(['t1']),
+          b: new Set(['t1']),
+          c: new Set(['t1']),
+          't1.a': new Set(['t1']),
+          id: new Set(['users']),
+          email: new Set(['users'])
+        }
+      }
+    });
+  });
+
   it('prettifies with right-aligned keywords.', () => {
     const [sql] = format.pretty({
       select: ['*'],
@@ -471,7 +737,25 @@ describe('format.pretty', () => {
       from: ['t1'],
       where: [and, [ne, 'b', 'bar'], [eq, 't1.a', 'baz']]
     });
-    expect(sql).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> bar\n   AND t1.a = baz");
+    expect(sql).to.eql("SELECT a, b, c\n  FROM t1\n WHERE b <> 'bar'\n   AND t1.a = 'baz'");
+  });
+
+  it('quotes strings', () => {
+    const [sql] = format.pretty({
+      select: [all],
+      from: ['users'],
+      where: [eq, 'id', '1']
+    });
+    expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = '1'");
+  });
+
+  it('does not quote numbers', () => {
+    const [sql] = format.pretty({
+      select: [all],
+      from: ['users'],
+      where: [eq, 'id', 1]
+    });
+    expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = 1");
   });
 
   context('with parameter bindings', () => {
@@ -496,13 +780,27 @@ describe('format.pretty', () => {
 });
 
 describe('format.pprint', () => {
-  const selectFromUsers = partial({ select: ['*'], from: ['users'] });
+  let format: ReturnType<typeof formatter>;
+
+  beforeEach(() => {
+    format = formatter({
+      schema: {
+        tables: new Set(['users', 't1']),
+        columns: {
+          a: new Set(['t1']),
+          b: new Set(['t1']),
+          id: new Set(['users'])
+        }
+      }
+    });
+  });
 
   it('formats with pretty alignment and logs to console.debug.', () => {
     const consoleDebugSpy = sinon.spy(console, 'debug');
+    const selectFromUsers = partial({ select: ['*'], from: ['users'] });
 
     const [sql] = format.pprint(selectFromUsers({
-      where: [eq, 'id', '1']
+      where: [eq, 'id', 1]
     }));
 
     expect(sql).to.eql("SELECT *\n  FROM users\n WHERE id = 1");

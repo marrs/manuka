@@ -10,11 +10,15 @@ import type {
   SqlValue,
   FormatterSchema,
   FormatterOptions,
+  Atom,
+  ValueRow,
+  ComparisonOp,
 } from './types.ts';
 import { DDL_KEYS } from './types.ts';
 import { tokenizeDml } from './tokenizer/dml.ts';
 import { tokenizeDdl } from './tokenizer/ddl.ts';
 import { prettyFormatter, separatorFormatter } from './formatters.ts';
+import { hasTable, hasColumn } from './schema-helpers.ts';
 
 // Placeholder formatters for different dialects
 const PLACEHOLDER_FORMATTERS = {
@@ -121,6 +125,208 @@ function isDdl(dsl: CommonDml | CommonDdl): dsl is CommonDdl {
   return DDL_KEYS.some(key => key in dsl);
 }
 
+/**
+ * Check if a value is a placeholder (direct or named).
+ */
+function isPlaceholder(value: Atom): value is PlaceholderDirect | PlaceholderNamed {
+  return typeof value === 'object' && value !== null && '__placeholder' in value;
+}
+
+/**
+ * Validate and transform DSL with schema.
+ * - Validates table names
+ * - Validates column names
+ * - Auto-wraps unknown values as placeholders
+ * - Transforms NULL comparisons to IS NULL / IS NOT NULL
+ */
+function validateAndTransformDsl(
+  dsl: CommonDml,
+  schema: FormatterSchema,
+  currentTable?: string
+): CommonDml {
+  const result: CommonDml = {};
+
+  // Validate and copy FROM clause
+  if (dsl.from) {
+    result.from = dsl.from.map(table => {
+      if (!hasTable(schema, table)) {
+        throw new Error(`Unknown table: ${table}`);
+      }
+      return table;
+    });
+    // Use first table as current table context
+    currentTable = result.from[0];
+  }
+
+  // Validate and copy INSERT INTO
+  if (dsl.insertInto) {
+    if (!hasTable(schema, dsl.insertInto)) {
+      throw new Error(`Unknown table: ${dsl.insertInto}`);
+    }
+    result.insertInto = dsl.insertInto;
+    currentTable = dsl.insertInto;
+  }
+
+  // Validate SELECT columns
+  if (dsl.select) {
+    result.select = dsl.select.map(col => {
+      // Skip '*' wildcard
+      if (col === '*') {
+        return col;
+      }
+      if (currentTable && !hasColumn(schema, currentTable, col)) {
+        throw new Error(`Unknown column '${col}' in table '${currentTable}'`);
+      }
+      return col;
+    });
+  }
+
+  // Validate INSERT columns
+  if (dsl.columns) {
+    result.columns = dsl.columns.map(col => {
+      if (currentTable && !hasColumn(schema, currentTable, col)) {
+        throw new Error(`Unknown column '${col}' in table '${currentTable}'`);
+      }
+      return col;
+    });
+  }
+
+  // Validate and transform WHERE clause
+  if (dsl.where) {
+    result.where = validateAndTransformExpr(dsl.where, schema, currentTable);
+  }
+
+  // Auto-wrap INSERT VALUES
+  if (dsl.values) {
+    result.values = dsl.values.map(row =>
+      row.map(value => wrapValuesInExpr(value)) as ValueRow
+    );
+  }
+
+  // Copy other properties
+  if (dsl.orderBy) {
+    result.orderBy = dsl.orderBy;
+  }
+
+  return result;
+}
+
+/**
+ * Validate and transform an expression.
+ * - Validates column names
+ * - Auto-wraps unknown values
+ * - Transforms NULL comparisons
+ */
+function validateAndTransformExpr(
+  expr: Expr,
+  schema: FormatterSchema,
+  currentTable?: string
+): Expr {
+  // Atom - validate as value
+  if (!Array.isArray(expr)) {
+    return validateAtom(expr, 'value', schema, currentTable);
+  }
+
+  const [operator, ...operands] = expr;
+
+  // Handle comparison operators
+  if (isComparisonOp(operator)) {
+    const column = validateAtom(operands[0], 'column-name', schema, currentTable);
+    const value = operands[1];
+
+    // NULL special case - transform to IS NULL / IS NOT NULL
+    if (value === null) {
+      if (operator === '=') {
+        return ['IS NULL', column as string];
+      }
+      if (operator === '<>') {
+        return ['IS NOT NULL', column as string];
+      }
+      throw new Error(`Cannot use ${operator} with null value`);
+    }
+
+    const wrappedValue = validateAtom(value, 'value', schema, currentTable);
+    return [operator, column, wrappedValue];
+  }
+
+  // Handle logical operators (recursive)
+  if (operator === 'and' || operator === 'or') {
+    return [operator, ...operands.map(op => validateAndTransformExpr(op, schema, currentTable))] as any;
+  }
+
+  // Handle arithmetic operators
+  return [operator, ...operands.map(op => validateAtom(op, 'value', schema, currentTable))] as any;
+}
+
+/**
+ * Validate an atom value.
+ * Position determines validation behavior:
+ * - 'column-name': Must be valid column, throws if not
+ * - 'value': Can be column (column-to-column) or wrapped as placeholder
+ */
+function validateAtom(
+  value: Atom,
+  position: 'column-name' | 'value',
+  schema: FormatterSchema,
+  currentTable?: string
+): Atom {
+  // Already a placeholder - pass through
+  if (isPlaceholder(value)) {
+    return value;
+  }
+
+  // Non-string → auto-wrap as placeholder if in value position
+  if (typeof value !== 'string') {
+    if (position === 'value') {
+      return { __placeholder: true, value } as PlaceholderDirect;
+    }
+    throw new Error(`Expected string identifier, got ${typeof value}`);
+  }
+
+  // String validation based on position
+  if (position === 'column-name') {
+    if (currentTable && !hasColumn(schema, currentTable, value)) {
+      throw new Error(`Unknown column '${value}' in table '${currentTable}'`);
+    }
+    return value;  // Valid column
+  }
+
+  // position === 'value'
+  // Check if it's a column name (for column-to-column comparison)
+  if (currentTable && hasColumn(schema, currentTable, value)) {
+    return value;  // Column comparison
+  }
+
+  // Unknown string → auto-wrap as placeholder
+  return { __placeholder: true, value } as PlaceholderDirect;
+}
+
+/**
+ * Check if operator is a comparison operator.
+ */
+function isComparisonOp(op: any): op is ComparisonOp {
+  return op === '=' || op === '<>' || op === '<' || op === '>' ||
+         op === '<=' || op === '>=' || op === 'LIKE';
+}
+
+/**
+ * Recursively wrap values in expressions (including arithmetic).
+ * Keeps already-wrapped placeholders, wraps everything else.
+ */
+function wrapValuesInExpr(expr: Expr): Expr {
+  // Atom - wrap if not already a placeholder
+  if (!Array.isArray(expr)) {
+    if (isPlaceholder(expr)) {
+      return expr;
+    }
+    return { __placeholder: true, value: expr } as PlaceholderDirect;
+  }
+
+  // Array expression - recursively wrap operands
+  const [op, ...operands] = expr;
+  return [op, ...operands.map(operand => wrapValuesInExpr(operand))] as any;
+}
+
 type FormatOptions = {
   dialect?: Dialect,
   validateBindings?: boolean,
@@ -138,7 +344,14 @@ function formatWithContext(
   },
 ): string {
   const { validateBindings: doValidateBindings } = options;
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
+
+  // Validate and transform DSL if schema is available and it's DML
+  let processedDsl = dsl;
+  if (context.schema && !isDdl(dsl)) {
+    processedDsl = validateAndTransformDsl(dsl as CommonDml, context.schema);
+  }
+
+  const tokens = isDdl(processedDsl) ? tokenizeDdl(processedDsl) : tokenizeDml(processedDsl, context);
   const result = separatorFormatter(separator, tokens, context);
 
   // Validate bindings if provided
@@ -164,7 +377,8 @@ export function format(
   const context: PlaceholderContext = {
     placeholders: [],
     dialect,
-    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
+    formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect],
+    schema: this?.schema
   };
   const sql = formatWithContext(
     context, ' ', dsl, params, {dialect, validateBindings}
@@ -194,9 +408,19 @@ format.print = function(
     params = [],
   }: FormatOptions = {}
 ): [string, ...unknown[]] {
-  let context: PlaceholderContext = initPlaceholderContext(dialect);
+  let context: PlaceholderContext = {
+    ...initPlaceholderContext(dialect),
+    schema: this?.schema
+  };
   let result = '';
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
+
+  // Validate and transform DSL if schema is available and it's DML
+  let processedDsl = dsl;
+  if (context.schema && !isDdl(dsl)) {
+    processedDsl = validateAndTransformDsl(dsl as CommonDml, context.schema);
+  }
+
+  const tokens = isDdl(processedDsl) ? tokenizeDdl(processedDsl) : tokenizeDml(processedDsl, context);
   result = separatorFormatter('\n', tokens);
   const output = replacePlaceholdersForDisplay(result, context, params);
 
@@ -212,7 +436,10 @@ format.print = function(
 
   console.debug(output, bindings);
 
-  context = initPlaceholderContext(dialect);
+  context = {
+    ...initPlaceholderContext(dialect),
+    schema: this?.schema
+  };
   result = formatWithContext(context, '\n', dsl, params, {dialect, validateBindings});
   return [result, ...bindings];
 };
@@ -226,9 +453,19 @@ format.pretty = function(
     params = [],
   }: FormatOptions = {}
 ): [string, ...unknown[]] {
-  const context: PlaceholderContext = initPlaceholderContext(dialect);
-  const tokens = isDdl(dsl) ? tokenizeDdl(dsl) : tokenizeDml(dsl, context);
-  let result = prettyFormatter(tokens); // No context = no replacement yet
+  const context: PlaceholderContext = {
+    ...initPlaceholderContext(dialect),
+    schema: this?.schema
+  };
+
+  // Validate and transform DSL if schema is available and it's DML
+  let processedDsl = dsl;
+  if (context.schema && !isDdl(dsl)) {
+    processedDsl = validateAndTransformDsl(dsl as CommonDml, context.schema);
+  }
+
+  const tokens = isDdl(processedDsl) ? tokenizeDdl(processedDsl) : tokenizeDml(processedDsl, context);
+  let result = prettyFormatter(tokens); // Don't pass context - keep markers for display replacement
 
   // Extract bindings from params
   const bindings: unknown[] = [];
@@ -245,7 +482,7 @@ format.pretty = function(
     validateBindings(context, params);
   }
 
-  // Replace placeholders for display
+  // Replace placeholder markers with values for display
   if (context.placeholders.length > 0) {
     return [replacePlaceholdersForDisplay(result, context, params), ...bindings];
   }

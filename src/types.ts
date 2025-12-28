@@ -23,8 +23,8 @@ export type PlaceholderEntry =
 export type Atom = SqlValue | Placeholder;
 
 // Comparison expressions: operator, field name, value
-export type ComparisonOp = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'LIKE';
-export type ComparisonExpr = [ComparisonOp, string, Atom];
+export type ComparisonOp = '=' | '<>' | '<' | '>' | '<=' | '>=' | 'LIKE' | 'IS NULL' | 'IS NOT NULL';
+export type ComparisonExpr = [ComparisonOp, string, Atom] | ['IS NULL', string] | ['IS NOT NULL', string];
 
 // Logical expressions: operator, at least 2 operands
 export type LogicalOp = 'and' | 'or';
@@ -55,6 +55,8 @@ export type PlaceholderContext = {
   placeholders: PlaceholderEntry[];
   dialect: Dialect;
   formatPlaceholder: PlaceholderFormatter;
+  schema?: FormatterSchema;
+  currentTable?: string;
 };
 
 export type CommonDml = {
