@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import {
-  format, partial, param, $, formatter
+  format, partial, param, place, formatter
 } from '../src/index.ts';
 import {
   all,
@@ -177,7 +177,7 @@ describe('format', () => {
         format({
           select: ['*'],
           from: ['users'],
-          where: ['=', 'nonexistent', $('value')]
+          where: ['=', 'nonexistent', 'value']
         });
       }).to.throw(/unknown column.*nonexistent/i);
     });
@@ -186,7 +186,7 @@ describe('format', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
-        where: ['=', 'username', 'alice']  // Plain string, not $()
+        where: ['=', 'username', 'alice']  // Plain string, not place()
       });
       expect(sql).to.include('username = ?');
       expect(bindings).to.deep.equal(['alice']);
@@ -222,7 +222,7 @@ describe('format', () => {
       expect(bindings).to.deep.equal([]);  // No bindings
     });
 
-    it.skip('place() forces a column name to be treated as a value placeholder', () => {
+    it('place() forces a column name to be treated as a value placeholder', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
@@ -360,7 +360,7 @@ describe('format', () => {
     it('validates INSERT INTO table exists', () => {
       const [sql] = format({
         insertInto: 'users',
-        values: [[$(1), $('alice')]]
+        values: [[1, 'alice']]
       });
       expect(sql).to.include('INSERT INTO users');
     });
@@ -369,7 +369,7 @@ describe('format', () => {
       expect(() => {
         format({
           insertInto: 'nonexistent',
-          values: [[$(1)]]
+          values: [[1]]
         });
       }).to.throw(/unknown table.*nonexistent/i);
     });
@@ -378,7 +378,7 @@ describe('format', () => {
       const [sql] = format({
         insertInto: 'users',
         columns: ['id', 'email'],
-        values: [[$(1), $('test@example.com')]]
+        values: [[1, 'test@example.com']]
       });
       expect(sql).to.include('id, email');
     });
@@ -388,7 +388,7 @@ describe('format', () => {
         format({
           insertInto: 'users',
           columns: ['nonexistent'],
-          values: [[$(1)]]
+          values: [[1]]
         });
       }).to.throw(/unknown column.*nonexistent/i);
     });
@@ -480,7 +480,7 @@ describe('format', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
-        where: [eq, 'id', $(123)]
+        where: [eq, 'id', place(123)]
       }, {dialect: 'common'});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = ?');
@@ -491,7 +491,7 @@ describe('format', () => {
       const [sql, ...bindings] = format({
         select: ['*'],
         from: ['users'],
-        where: [and, [eq, 'id', $(123)], [eq, 'status', $('active')]]
+        where: [and, [eq, 'id', place(123)], [eq, 'status', place('active')]]
       }, {dialect: 'pg'});
 
       expect(sql).to.equal('SELECT * FROM users WHERE id = $1 AND status = $2');
@@ -502,7 +502,7 @@ describe('format', () => {
       const [sql, ...bindings] = format({
         insertInto: 'users',
         columns: ['id', 'name', 'email'],
-        values: [[$(1), $('John'), $('john@example.com')]]
+        values: [[place(1), place('John'), place('john@example.com')]]
       }, {dialect: 'common'});
 
       expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
@@ -511,7 +511,7 @@ describe('format', () => {
 
     it('handles null value in direct placeholder', () => {
       const [sql, ...bindings] = format({
-        where: [eq, 'status', $(null)]
+        where: [eq, 'status', place(null)]
       }, {dialect: 'common'});
 
       expect(sql).to.equal('WHERE status = ?');
@@ -520,7 +520,7 @@ describe('format', () => {
 
     it('handles undefined value in direct placeholder', () => {
       const [sql, ...bindings] = format({
-        where: [eq, 'field', $(undefined)]
+        where: [eq, 'field', place(undefined)]
       }, {dialect: 'common'});
 
       expect(sql).to.equal('WHERE field = ?');
@@ -529,7 +529,7 @@ describe('format', () => {
 
     it('handles boolean true value in direct placeholder', () => {
       const [sql, ...bindings] = format({
-        where: [eq, 'active', $(true)]
+        where: [eq, 'active', place(true)]
       }, {dialect: 'common'});
 
       expect(sql).to.equal('WHERE active = ?');
@@ -538,7 +538,7 @@ describe('format', () => {
 
     it('handles boolean false value in direct placeholder', () => {
       const [sql, ...bindings] = format({
-        where: [eq, 'active', $(false)]
+        where: [eq, 'active', place(false)]
       }, {dialect: 'common'});
 
       expect(sql).to.equal('WHERE active = ?');
@@ -551,7 +551,7 @@ describe('format', () => {
       const [sql, ...bindings] = format({
         insertInto: 'users',
         columns: ['id', 'name', 'email'],
-        values: [[$(1), $('John'), param('email')]]
+        values: [[place(1), place('John'), param('email')]]
       }, {dialect: 'common', params: {email: 'john@example.com'}});
 
       expect(sql).to.equal("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
@@ -673,18 +673,18 @@ describe('format.print', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       format.print({
-        where: [eq, 'id', $(123)]
+        where: [eq, 'id', place(123)]
       }, {dialect: 'common'});
 
       expect(consoleDebugStub).to.have.been.calledWithMatch('id = 123');
       consoleDebugStub.restore();
     });
 
-    it('distinguishes between $(value) and param(key) in print() display', () => {
+    it('distinguishes between place(value) and param(key) in print() display', () => {
       const consoleDebugStub = sinon.stub(console, 'debug');
 
       format.print({
-        where: [and, [eq, 'id', $(123)], [eq, 'email', param('email')]]
+        where: [and, [eq, 'id', place(123)], [eq, 'email', param('email')]]
       }, {dialect: 'common', params: {}});
 
       // Should show: id = 123 AND email = param(email)
@@ -695,7 +695,7 @@ describe('format.print', () => {
 
     it('substitutes direct placeholder values in pretty format', () => {
       const [sql] = format.pretty({
-        where: [eq, 'id', $(123)]
+        where: [eq, 'id', place(123)]
       }, {dialect: 'common'});
 
       expect(sql).to.include('id = 123');
@@ -846,7 +846,7 @@ describe('formatter()', () => {
       const [sql] = format({
         select: ['id'],
         from: ['users'],
-        where: [eq, 'id', $(1)]
+        where: [eq, 'id', 1]
       });
 
       expect(sql).to.include('$1');
@@ -866,7 +866,7 @@ describe('formatter()', () => {
       const [sql] = format({
         select: ['id'],
         from: ['users'],
-        where: [eq, 'id', $(1)]
+        where: [eq, 'id', place(1)]
       });
 
       expect(sql).to.include('?');
@@ -874,8 +874,7 @@ describe('formatter()', () => {
     });
   });
 
-  // @CLAUDE: We'll implement these as part of the validator work.
-  describe.skip('schema variants', () => {
+  describe('schema variants', () => {
     const dml = {
       select: ['id'],
       from: ['users'],
@@ -893,7 +892,7 @@ describe('formatter()', () => {
 
       const [sql] = format(dml);
 
-      expect(sql).to.be('SELECT id FROM users');
+      expect(sql).to.eq('SELECT id FROM users');
     });
 
     it('accepts classic schema (object literals)', () => {
@@ -908,7 +907,7 @@ describe('formatter()', () => {
 
       const [sql] = format(dml);
 
-      expect(sql).to.be('SELECT id FROM users');
+      expect(sql).to.eq('SELECT id FROM users');
     });
 
     it('accepts mixed schema', () => {
@@ -923,7 +922,7 @@ describe('formatter()', () => {
 
       const [sql] = format(dml);
 
-      expect(sql).to.be('SELECT id FROM users');
+      expect(sql).to.eq('SELECT id FROM users');
     });
   });
 

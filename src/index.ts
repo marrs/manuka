@@ -27,8 +27,8 @@ const PLACEHOLDER_FORMATTERS = {
 };
 //
 // Placeholder function for direct value binding
-// Usage: $(123), $('active'), $(null), $(true), etc.
-export const $: PlaceholderDirectFn = function(value: SqlValue): PlaceholderDirect {
+// Usage: place(123), place('active'), place(null), place(true), etc.
+export const place: PlaceholderDirectFn = function(value: SqlValue): PlaceholderDirect {
   return { __placeholder: true, value };
 };
 
