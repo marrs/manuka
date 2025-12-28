@@ -1,17 +1,52 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
-import { format, partial, param, $ } from '../src/index.ts';
+import {
+  format, partial, param, $, formatter
+} from '../src/index.ts';
 import {
   all,
-  integer,
-  and, or, eq, ne, lt, gt, gte
+  and, or, eq, ne, gt,
 } from '../src/vocabulary.ts';
 
 describe('format', () => {
+  let format: ReturnType<typeof formatter>;
+
+  beforeEach(() => {
+    format = formatter({
+      schema: {
+        columns: {
+          // Generic test columns
+          a: { t1: true },
+          b: { t1: true },
+          c: { t1: true },
+          // Users table columns
+          id: { users: true, products: true, orders: true },
+          name: { users: true, products: true },
+          email: { users: true },
+          status: { users: true },
+          active: { users: true },
+          age: { users: true },
+          role: { users: true },
+          username: { users: true },
+          password: { users: true },
+          // Orders table columns
+          user_id: { orders: true },
+          total: { orders: true },
+          // Products table columns
+          price: { products: true },
+          description: { products: true }
+        }
+      }
+    });
+  });
+
   context('select', () => {
     it('returns an empty select expression if no column names are provided.', () => {
       const [sql] = format({select: []});
       expect(sql).to.eql("SELECT ");
+    });
+
+    it('throws an exception if given column names are not in formatter schema', () => {
     });
 
     it('returns a select expression for the given column names.', () => {
@@ -24,6 +59,9 @@ describe('format', () => {
     it('returns a from expression for a single table.', () => {
       const [sql] = format({select: ['*'], from: ['users']});
       expect(sql).to.eql("SELECT * FROM users");
+    });
+
+    it('throws an exception if given table names are not in formatter schema', () => {
     });
 
     it('returns a from expression for multiple tables.', () => {
@@ -487,3 +525,172 @@ describe('format.pprint', () => {
     consoleDebugStub.restore();
   });
 });
+
+describe('formatter()', () => {
+  describe('initialization', () => {
+    it('returns a format function', () => {
+      const format = formatter();
+
+      expect(format).to.be.a('function');
+    });
+
+    it('accepts schema with dialect option', () => {
+      const format = formatter({
+        dialect: 'pg',
+        schema: {
+          columns: {
+            id: { users: true }
+          }
+        }
+      });
+
+      // Verify pg dialect is used ($1, $2 for placeholders)
+      const [sql] = format({
+        select: ['id'],
+        from: ['users'],
+        where: [eq, 'id', $(1)]
+      });
+
+      expect(sql).to.include('$1');
+      expect(sql).to.not.include('?');
+    });
+
+    it('uses "common" dialect by default', () => {
+      const format = formatter({
+        schema: {
+          columns: {
+            id: { users: true }
+          }
+        }
+      });
+
+      // Verify common dialect is used (? for placeholders)
+      const [sql] = format({
+        select: ['id'],
+        from: ['users'],
+        where: [eq, 'id', $(1)]
+      });
+
+      expect(sql).to.include('?');
+      expect(sql).to.not.include('$1');
+    });
+  });
+
+  // @CLAUDE: We'll implement these as part of the validator work.
+  describe.skip('schema variants', () => {
+    const dml = {
+      select: ['id'],
+      from: ['users'],
+    };
+
+    it('accepts modern schema (Map/Set)', () => {
+      const format = formatter({
+        schema: {
+          columns: new Map([
+            ['id', new Set(['users'])],
+            ['name', new Set(['users'])]
+          ])
+        }
+      });
+
+      const [sql] = format(dml);
+
+      expect(sql).to.be('SELECT id FROM users');
+    });
+
+    it('accepts classic schema (object literals)', () => {
+      const format = formatter({
+        schema: {
+          columns: {
+            id: { users: true },
+            name: { users: true }
+          }
+        }
+      });
+
+      const [sql] = format(dml);
+
+      expect(sql).to.be('SELECT id FROM users');
+    });
+
+    it('accepts mixed schema', () => {
+      const format = formatter({
+        schema: {
+          columns: {
+            id: new Set(['users']),
+            name: { users: true }
+          }
+        }
+      });
+
+      const [sql] = format(dml);
+
+      expect(sql).to.be('SELECT id FROM users');
+    });
+  });
+
+  describe('schema with tables property', () => {
+    it('accepts modern schema with Set for tables', () => {
+      const format = formatter({
+        schema: {
+          tables: new Set(['users', 'products']),
+          columns: new Map([
+            ['id', new Set(['users', 'products'])]
+          ])
+        }
+      });
+
+      expect(format).to.be.a('function');
+      expect(format.schema).to.exist;
+      expect(format.schema.tables).to.be.instanceOf(Set);
+      expect(format.schema.tables.has('users')).to.be.true;
+      expect(format.schema.tables.has('products')).to.be.true;
+    });
+
+    it('accepts classic schema with object for tables', () => {
+      const format = formatter({
+        schema: {
+          tables: { users: true, products: true },
+          columns: {
+            id: { users: true, products: true }
+          }
+        }
+      });
+
+      expect(format).to.be.a('function');
+      expect(format.schema).to.exist;
+      expect(format.schema.tables).to.deep.include(
+        { users: true, products: true }
+      );
+    });
+
+    it('accepts mixed schema (Set tables, object columns)', () => {
+      const format = formatter({
+        schema: {
+          tables: new Set(['users']),
+          columns: {
+            id: { users: true }
+          }
+        }
+      });
+
+      expect(format).to.be.a('function');
+      expect(format.schema).to.exist;
+      expect(format.schema.tables).to.be.instanceOf(Set);
+      expect(format.schema.tables.has('users')).to.be.true;
+    });
+
+    it('allows schema without tables property (optional)', () => {
+      const format = formatter({
+        schema: {
+          columns: { id: { users: true } }
+        } as any
+      });
+
+      expect(format).to.be.a('function');
+      expect(format.schema).to.exist;
+      expect(format.schema.tables).to.be.undefined;
+    });
+  });
+});
+

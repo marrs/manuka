@@ -146,3 +146,45 @@ export type CommonDdl = {
 // Compile-time validation that DDL_KEYS matches CommonDdl keys
 type ValidateDdlKeys = typeof DDL_KEYS[number] extends keyof CommonDdl ? true : never;
 const _validateDdlKeys: ValidateDdlKeys = true;
+
+// ============================================================================
+// Schema Types (for formatter)
+// ============================================================================
+
+// Modern schema using Maps and Sets
+export type FormatterSchemaModern = {
+  tables?: Set<string>;
+  columns: Map<string, Set<string>>;
+};
+
+// Classic schema using object literals (for compatibility)
+export type FormatterSchemaClassic = {
+  tables?: {
+    [tableName: string]: true;
+  };
+  columns: {
+    [columnName: string]: {
+      [tableName: string]: true;
+    };
+  };
+};
+
+// Mixed schema allowing both modern and classic formats
+export type FormatterSchema = {
+  tables?: Set<string> | {
+    [tableName: string]: true;
+  };
+  columns: Map<string, Set<string>> | {
+    [columnName: string]: Set<string> | {
+      [tableName: string]: true;
+    };
+  };
+};
+
+// Formatter options with optional schema and dialect
+export type FormatterOptions<
+  S extends FormatterSchema = FormatterSchema
+> = {
+  dialect?: 'common' | 'pg';
+  schema?: S;
+};

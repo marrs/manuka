@@ -8,6 +8,7 @@ const upperCaseSqlKeywords: Record<string, string> = {
   'select': 'SELECT',
   'from': 'FROM',
   'where': 'WHERE',
+  'order by': 'ORDER BY',
   'if exists': 'IF EXISTS',
   'if not exists': 'IF NOT EXISTS',
   'integer': 'INTEGER',
@@ -23,7 +24,8 @@ const upperCaseSqlKeywords: Record<string, string> = {
 }
 
 export function upperCaseSqlKeyword(kw: string): string {
-  const result = upperCaseSqlKeywords[kw];
+  // Normalize to lowercase for lookup
+  const result = upperCaseSqlKeywords[kw.toLowerCase()];
   if (!result) {
     console.error("No upper case keyword for", kw);
     return kw;

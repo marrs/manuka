@@ -8,6 +8,8 @@ import type {
   PlaceholderDirect,
   PlaceholderNamed,
   SqlValue,
+  FormatterSchema,
+  FormatterOptions,
 } from './types.ts';
 import { DDL_KEYS } from './types.ts';
 import { tokenizeDml } from './tokenizer/dml.ts';
@@ -147,10 +149,14 @@ function formatWithContext(
   return result;
 }
 
+function validateSql(schema, sql) {
+}
+
 export function format(
+  this: FormatterOptions,
   dsl: CommonDml | CommonDdl,
   {
-    dialect = 'common',
+    dialect = this?.dialect ?? 'common',
     validateBindings = true,
     params = [],
   }: FormatOptions = {}
@@ -160,7 +166,9 @@ export function format(
     dialect,
     formatPlaceholder: PLACEHOLDER_FORMATTERS[dialect]
   };
-  const sql = formatWithContext(context, ' ', dsl, params, {dialect, validateBindings});
+  const sql = formatWithContext(
+    context, ' ', dsl, params, {dialect, validateBindings}
+  );
 
   // Extract bindings from params based on placeholder order
   const bindings: unknown[] = [];
@@ -178,9 +186,10 @@ export function format(
 }
 
 format.print = function(
+  this: FormatterOptions,
   dsl: CommonDml | CommonDdl,
   {
-    dialect = 'common',
+    dialect = this?.dialect ?? 'common',
     validateBindings = false,
     params = [],
   }: FormatOptions = {}
@@ -209,9 +218,10 @@ format.print = function(
 };
 
 format.pretty = function(
+  this: FormatterOptions,
   dsl: CommonDml | CommonDdl,
   {
-    dialect = 'common',
+    dialect = this?.dialect ?? 'common',
     validateBindings: doValidateBindings = true,
     params = [],
   }: FormatOptions = {}
@@ -244,10 +254,36 @@ format.pretty = function(
 };
 
 format.pprint = function(
+  this: FormatterOptions,
   dsl: CommonDml | CommonDdl,
   options: FormatOptions = {}
 ): [string, ...unknown[]] {
-  const result = format.pretty(dsl, options);
+  const result = format.pretty.call(this, dsl, options);
   console.debug(result[0]);
   return result;
 };
+
+/**
+ * Create a format function with schema context.
+ * Uses bind() to attach dialect and schema to format's this context.
+ * Schema validation will be added in a later phase.
+ */
+export function formatter<S extends FormatterSchema = FormatterSchema>(
+  options: FormatterOptions<S> = {}
+) {
+  const { schema, dialect = 'common' } = options;
+
+  // Create context and bind to format
+  const context = { schema, dialect };
+  const boundFormat = format.bind(context) as typeof format;
+
+  // Manually attach methods (bind doesn't copy properties)
+  boundFormat.print = format.print.bind(context);
+  boundFormat.pretty = format.pretty.bind(context);
+  boundFormat.pprint = format.pprint.bind(context);
+
+  // Expose schema for inspection
+  boundFormat.schema = schema;
+
+  return boundFormat;
+}
